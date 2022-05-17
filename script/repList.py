@@ -1,4 +1,38 @@
 #Default starting node list. Beta net
+repsInitD = [
+  'http://localhost:46000',
+  'http://localhost:46001',
+  'http://localhost:46002',
+  'http://localhost:46003',
+  'http://localhost:46004',
+  'http://localhost:46005',
+  'http://localhost:46006',
+  'http://localhost:46007',
+  'http://localhost:46008',
+  'http://localhost:46009',
+  'http://localhost:46010',
+  'http://localhost:46011',
+  'http://localhost:46012',
+  'http://localhost:46013',
+  'http://localhost:46014',
+  'http://localhost:46015',
+  'http://localhost:46016',
+  'http://localhost:46017',
+  'http://localhost:46018',
+  'http://localhost:46019',
+  'http://localhost:46020',
+  'http://localhost:46021',
+  'http://localhost:46022',
+  'http://localhost:46023',
+  'http://localhost:46024',
+  'http://localhost:46025',
+  'http://localhost:46026',
+  'http://localhost:46027',
+  'http://localhost:46028',
+  'http://localhost:46029',
+  'http://localhost:46030',
+]
+
 repsInitB = [
   'https://monitor-beta.mynano.ninja',
   'http://beta.warai.me',
@@ -245,6 +279,7 @@ repsInitM = [
 ]
 
 #Black lists (excluded from NanoTicker)
+blacklistD = []
 blacklistB = []
 blacklistM = [
     'http://node.nanologin.com',

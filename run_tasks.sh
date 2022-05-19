@@ -1,8 +1,8 @@
 #!/bin/sh
-echo "/usr/sbin/httpd &"  
+
+nohup /usr/sbin/run.sh & #not sure if needed
 /usr/sbin/httpd &
-echo "nohup python3 ./script/calc-reps.py &"  
-nohup python3 ./script/calc-reps.py &
+python3 ./script/calc-reps.py
 
 # Exit with status of process that exited first
 exit $?

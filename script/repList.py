@@ -1,9 +1,9 @@
 #Default starting node list. Beta net
 repsInitD = [
-  'http://localhost:46000',
-  'http://localhost:46001',
-  'http://localhost:46002',
-  'http://localhost:46003',
+  'http://nl_genesis_monitor:80',
+  'http://nl_pr1:80',
+  'http://nl_pr2:80',
+  'http://nl_node3:80',
   'http://localhost:46004',
   'http://localhost:46005',
   'http://localhost:46006',

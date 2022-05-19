@@ -13,12 +13,18 @@ cp netdata/repstats-b.conf /etc/netdata/python.d/
 
 echo "Copy custom dashboard js"
 cp netdata/dashboard_custom.js /usr/share/netdata/web/
+cp netdata/dashboard_custom.js /var/lib/netdata/www/
 
 echo "Copy custom themes"
-cp netdata/css/bootstrap-darkest.css //usr/share/netdata/web/css/
-cp netdata/css/bootstrap-darkly.css //usr/share/netdata/web/css/
-cp netdata/css/dashboard.darkest.css //usr/share/netdata/web/css/
-cp netdata/css/dashboard.darkly.css //usr/share/netdata/web/css/
+cp netdata/css/bootstrap-darkest.css /usr/share/netdata/web/css/
+cp netdata/css/bootstrap-darkly.css /usr/share/netdata/web/css/
+cp netdata/css/dashboard.darkest.css /usr/share/netdata/web/css/
+cp netdata/css/dashboard.darkly.css /usr/share/netdata/web/css/
+
+cp netdata/css/bootstrap-darkest.css /var/lib/netdata/www/
+cp netdata/css/bootstrap-darkly.css /var/lib/netdata/www/
+cp netdata/css/dashboard.darkest.css /var/lib/netdata/www/
+cp netdata/css/dashboard.darkly.css /var/lib/netdata/www/
 
 echo "Create folders in var/www and copy dashboard main page"
 mkdir -p /var/www/repstat/
@@ -30,6 +36,7 @@ mv /var/www/repstat-beta/public_html/index_beta.html /var/www/repstat-beta/publi
 
 echo "Set netdata read access for dashboard and style"
 chown -R netdata:netdata /usr/share/netdata/web/
+chown -R netdata:netdata /var/lib/netdata/www/
 
 echo "Set www rights"
 chown -R www-data:www-data /var/www/repstat/

@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """Read data from multiple public nano node monitors and combines stats in json"""
 """Author: Joohansson (Json)"""
 
@@ -14,19 +15,24 @@ import requests
 import re
 import logging
 import websockets
-import numpy as np
 from pathlib import Path
 from decimal import Decimal
 from collections import deque #for array shifting
+import math
 
 #Own references
 import repList
 
 """CUSTOM VARS"""
 BETA = False #SET TO False FOR MAIN NET
-DEV = False #SET TO True when developing
+DEV = True #SET TO True when developing
+XXX = False
+LIVE = False #Gets switched to True if all else is false
 
-if DEV:
+
+
+
+if XXX:
     nodeUrl = 'http://127.0.0.1:55000'
     telemetryAddress = '127.0.0.1'
     telemetryPort = '7075'
@@ -39,7 +45,21 @@ if DEV:
     aliasUrl = 'https://mynano.ninja/api/accounts/aliases'
     localTelemetryAccount = 'nano_3jsonxwips1auuub94kd3osfg98s6f4x35ksshbotninrc1duswrcauidnue' #telemetry is retrived with another command for this account
     websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
-
+elif DEV :
+    nodeUrl = 'http://nl_genesis:17076'
+    telemetryAddress = 'nl_genesis'
+    telemetryPort = '17075'
+    websocketAddress  = 'ws://nl_genesis:17078'
+    logFile="repstat.log"
+    statFile = '/var/www/localhost/htdocs/json/stats.json' #netdata container
+    monitorFile = '/var/www/localhost/htdocs/json/monitors.json' #netdata container
+    #statFile = '/var/www/html/json/stats.json' #ubuntu container
+    #monitorFile = '/var/www/html/json/monitors.json' #ubuntu container
+    activeCurrency = 'nano' #nano, banano or nano-beta
+    ninjaMonitors = ''
+    aliasUrl = ''
+    localTelemetryAccount = 'nano_1fzwxb8tkmrp8o66xz7tcx65rm57bxdmpitw39ecomiwpjh89zxj33juzt6p' #telemetry is retrived with another command for this account
+    websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
 elif BETA:
     nodeUrl = 'http://127.0.0.1:55000' #beta
     telemetryAddress = '127.0.0.1'
@@ -55,6 +75,7 @@ elif BETA:
     websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
 
 else:
+    LIVE = True
     nodeUrl = 'http://[::1]:7076' #main
     telemetryAddress = '127.0.0.1'
     telemetryPort = '7075'
@@ -109,7 +130,11 @@ pStakeLatestVersionStat = 0 #percentage of connected online weight that is on la
 confCountLimit = 100 #lower limit for block count to include confirmation average
 confSpanLimit = 10000 #lower limit for time span to include confirmation average
 
-if BETA:
+if DEV :
+    repsInit = repList.repsInitD
+    blacklist = repList.blacklistD
+    checkCPSEvery = 1
+elif BETA:
     repsInit = repList.repsInitB
     blacklist = repList.blacklistB
     checkCPSEvery = 1 #inverval for calculating BPS/CPS from telemetry. Total time is runAPIEvery * checkCPSEvery
@@ -166,6 +191,14 @@ filename = Path(logFile)
 filename.touch(exist_ok=True)
 logging.basicConfig(level=logging.INFO,filename=logFile, filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
+
+def percentile(data, percentile):
+    n = len(data)
+    p = n * percentile / 100
+    if p.is_integer():
+        return sorted(data)[int(p)]
+    else:
+        return sorted(data)[int(math.ceil(p)) - 1]
 
 #Calculate the average value of the 50% middle percentile from a list
 def median(lst):
@@ -1292,7 +1325,7 @@ async def getAPI():
                     BPSMax = data[0]
 
             BPSMedian = float(median(medianArray))
-            BPSp75 = float(np.percentile(medianArray, 75))
+            BPSp75 = float(percentile(medianArray, 75))
 
         medianArray = []
         if len(cpsData) > 0:
@@ -1303,7 +1336,7 @@ async def getAPI():
                     CPSMax = data[0]
 
             CPSMedian = float(median(medianArray))
-            CPSp75 = float(np.percentile(medianArray, 75))
+            CPSp75 = float(percentile(medianArray, 75))
 
         # Bandwidth limit percentiles (replace 0 with 10Gbit/s because it count as unlimited)
         medianArray = []
@@ -1312,13 +1345,13 @@ async def getAPI():
                 if data == 0:
                     data = 1250000000
                 medianArray.append(data)
-            bwLimit1 = int(np.percentile(medianArray, 1))
-            bwLimit10 = int(np.percentile(medianArray, 10))
-            bwLimit25 = int(np.percentile(medianArray, 25))
-            bwLimit50 = int(np.percentile(medianArray, 50))
-            bwLimit75 = int(np.percentile(medianArray, 75))
-            bwLimit90 = int(np.percentile(medianArray, 90))
-            bwLimit99 = int(np.percentile(medianArray, 99))
+            bwLimit1 = int(percentile(medianArray, 1))
+            bwLimit10 = int(percentile(medianArray, 10))
+            bwLimit25 = int(percentile(medianArray, 25))
+            bwLimit50 = int(percentile(medianArray, 50))
+            bwLimit75 = int(percentile(medianArray, 75))
+            bwLimit90 = int(percentile(medianArray, 90))
+            bwLimit99 = int(percentile(medianArray, 99))
 
         #PR ONLY
         if len(countData_pr) > 0:
@@ -1377,7 +1410,7 @@ async def getAPI():
                     BPSMax_pr = data[0]
 
             BPSMedian_pr = float(median(medianArray))
-            BPSp75_pr = float(np.percentile(medianArray, 75))
+            BPSp75_pr = float(percentile(medianArray, 75))
 
         medianArray = []
         if len(cpsData_pr) > 0:
@@ -1388,7 +1421,7 @@ async def getAPI():
                     CPSMax_pr = data[0]
 
             CPSMedian_pr = float(median(medianArray))
-            CPSp75_pr = float(np.percentile(medianArray, 75))
+            CPSp75_pr = float(percentile(medianArray, 75))
 
         # Bandwidth limit percentiles (replace 0 with 10Gbit/s because it count as unlimited)
         medianArray = []
@@ -1397,13 +1430,13 @@ async def getAPI():
                 if data == 0:
                     data = 1250000000
                 medianArray.append(data)
-            bwLimit1_pr = int(np.percentile(medianArray, 1))
-            bwLimit10_pr = int(np.percentile(medianArray, 10))
-            bwLimit25_pr = int(np.percentile(medianArray, 25))
-            bwLimit50_pr = int(np.percentile(medianArray, 50))
-            bwLimit75_pr = int(np.percentile(medianArray, 75))
-            bwLimit90_pr = int(np.percentile(medianArray, 90))
-            bwLimit99_pr = int(np.percentile(medianArray, 99))
+            bwLimit1_pr = int(percentile(medianArray, 1))
+            bwLimit10_pr = int(percentile(medianArray, 10))
+            bwLimit25_pr = int(percentile(medianArray, 25))
+            bwLimit50_pr = int(percentile(medianArray, 50))
+            bwLimit75_pr = int(percentile(medianArray, 75))
+            bwLimit90_pr = int(percentile(medianArray, 90))
+            bwLimit99_pr = int(percentile(medianArray, 99))
 
         #Write output file
         statData = {\
@@ -1571,7 +1604,7 @@ async def getPeers():
         pVersions = []
         pStakeTot = 0
         pStakeReq = 0
-        supply = 133248061996216572282917317807824970865
+        supply = requests.post(url=nodeUrl, json={"action": "available_supply"}, timeout=60).json()["available"]
 
         #log.info(timeLog("Verifying peers"))
         monitorPaths = repsInit.copy()
@@ -1598,7 +1631,7 @@ async def getPeers():
 
                     if ip != "":
                         #Only try to find more monitors from peer IP in main network
-                        if not BETA:
+                        if LIVE:
                             #Combine with previous list and ignore duplicates
                             exists = False
                             for url in monitorPaths:
@@ -1707,7 +1740,10 @@ async def getPeers():
                 #extract second largest number by first removing duplicates
                 simplified = list(set(pVersions))
                 simplified.sort()
-                maxVersion = int(simplified[-2])
+                if len(simplified) > 1 :
+                    maxVersion = int(simplified[-2])
+                else : 
+                    maxVersion = int(simplified[0])
                 versionCounter = 0
                 for version in pVersions:
                     if int(version) == maxVersion:
@@ -1747,29 +1783,32 @@ async def getPeers():
 
         #Get monitors from Ninja API
         try:
-            r = requests.get(ninjaMonitors, timeout=30)
-            monitors = r.json()
+            if ninjaMonitors == "":
+                monitors = [{"monitor":{"sync":0,"url":"http://nl_genesis_monitor:80","version":"0","blocks":0},"account":""}]
+            else:
+                r = requests.get(ninjaMonitors, timeout=30)
+                monitors = r.json()
 
-            if r is not None:
-                if len(monitors) > 0:
-                    for monitor in monitors:
-                        try:
-                            url = monitor['monitor']['url']
-                            #Correct bad ending in some URLs like /api.php which will be added later
-                            url = url.replace('/api.php','')
-                            if url[-1] == '/': #ends with /
-                                url = url[:-1]
+            
+            if len(monitors) > 0:
+                for monitor in monitors:
+                    try:
+                        url = monitor['monitor']['url']
+                        #Correct bad ending in some URLs like /api.php which will be added later
+                        url = url.replace('/api.php','')
+                        if url[-1] == '/': #ends with /
+                            url = url[:-1]
 
-                            #Ignore duplicates (IPs may still lead to same host name but that will be dealt with later)
-                            exists = False
-                            for path in monitorPaths:
-                                if path == url:
-                                    exists = True
-                                    break
-                            if not exists:
-                                monitorPaths.append(url)
-                        except:
-                            log.warning(timeLog("Invalid Ninja monitor"))
+                        #Ignore duplicates (IPs may still lead to same host name but that will be dealt with later)
+                        exists = False
+                        for path in monitorPaths:
+                            if path == url:
+                                exists = True
+                                break
+                        if not exists:
+                            monitorPaths.append(url)
+                    except:
+                        log.warning(timeLog("Invalid Ninja monitor"))
 
         except Exception as e:
             pass

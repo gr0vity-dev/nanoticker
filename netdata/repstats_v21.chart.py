@@ -272,7 +272,7 @@ class Service(UrlService):
             raw = self._get_raw_data()
             parsed = json.loads(raw)
         except AttributeError:
-            return None
+            return dict()
 
         #Keys to read from api data with the first entry is keys used by the charts
         apiKeys = [('saved_blocks_max','blockCountMax',int,1), ('saved_blocks_median','blockCountMedian',int,1), ('confirmed_max','cementedMax',int,1), ('confirmed_median','cementedMedian',int,1),
@@ -288,18 +288,53 @@ class Service(UrlService):
             ('bps_max_10','BPSMax',float,1000),('bps_median_10','BPSMedian',float,1000),('bps_p75','BPSp75',float,1000),('cps_max_10','CPSMax',float,1000),('cps_median_10','CPSMedian',float,1000),('cps_p75','CPSp75',float,1000),
             ('bw_p10','bwLimit10',int,1),('bw_p25','bwLimit25',int,1),('bw_p50','bwLimit50',int,1),('bw_p75','bwLimit75',int,1),('bw_p90','bwLimit90',int,1)]
 
-        apiKeys_pr = [('saved_blocks_max_pr','blockCountMax_pr',int,1), ('saved_blocks_median_pr','blockCountMedian_pr',int,1), ('confirmed_max_pr','cementedMax_pr',int,1), ('confirmed_median_pr','cementedMedian_pr',int,1),
-            ('unchecked_max_pr','uncheckedMax_pr',int,1),('unchecked_median_pr','uncheckedMedian_pr',int,1),('unchecked_min_pr','uncheckedMin_pr',int,1),('peers_max_pr','peersMax_pr',int,1),
-            ('peers_median_pr','peersMedian_pr',int,1),('peers_min_pr','peersMin_pr',int,1),('average_median_pr','confAveMedian_pr',int,1),('average_min_pr','confAveMin_pr',int,1),('perc_50_pr','conf50Median_pr',int,1),
-            ('perc_75_pr','conf75Median_pr',int,1),('perc_90_pr','conf90Median_pr',int,1),('perc_99_pr','conf99Median_pr',int,1),('diff_median_pr','diffMedian_pr',int,1),
-            ('diff_max_pr','diffMax_pr',int,1),('multi_max_pr','multiplierMax_pr',float,1000),('multi_median_pr','multiplierMedian_pr',float,1000),('multi_min_pr','multiplierMin_pr',float,1000),
-            ('api_max_pr','procTimeMax_pr',int,1),('api_median_pr','procTimeMedian_pr',int,1),('api_min_pr','procTimeMin_pr',int,1),
-            ('supported_blocks_pr','lenBlockCount_pr',int,1),('supported_cemented_pr','lenCemented_pr',int,1),('supported_peers_pr','lenPeers_pr',int,1),
-            ('supported_conf_pr','lenConf50_pr',int,1),('supported_proc_pr','lenProcTime_pr',int,1),('supported_multiplier_pr','lenMultiplier_pr',int,1),
-            ('latest_version','pLatestVersionStat',float,1000),('tcp','pTypesStat',float,1000),('stake_tot','pStakeTotalStat',float,1000),
-            ('stake_req','pStakeRequiredStat',float,1000),('stake_latest','pStakeLatestVersionStat',float,1000),('speed','speedTest',int,1),
-            ('bps_max_10_pr','BPSMax_pr',float,1000),('bps_median_10_pr','BPSMedian_pr',float,1000),('bps_p75_pr','BPSp75_pr',float,1000),('cps_max_10_pr','CPSMax_pr',float,1000),('cps_median_10_pr','CPSMedian_pr',float,1000),('cps_p75_pr','CPSp75_pr',float,1000),
-            ('bw_p10_pr','bwLimit10_pr',int,1),('bw_p25_pr','bwLimit25_pr',int,1),('bw_p50_pr','bwLimit50_pr',int,1),('bw_p75_pr','bwLimit75_pr',int,1),('bw_p90_pr','bwLimit90_pr',int,1)]
+        apiKeys_pr = [  ('saved_blocks_max_pr','blockCountMax_pr',int,1), 
+                        ('saved_blocks_median_pr','blockCountMedian_pr',int,1), 
+                        ('confirmed_max_pr','cementedMax_pr',int,1), 
+                        ('confirmed_median_pr','cementedMedian_pr',int,1),
+                        ('unchecked_max_pr','uncheckedMax_pr',int,1),
+                        ('unchecked_median_pr','uncheckedMedian_pr',int,1),
+                        ('unchecked_min_pr','uncheckedMin_pr',int,1),
+                        ('peers_max_pr','peersMax_pr',int,1),
+                        ('peers_median_pr','peersMedian_pr',int,1),
+                        ('peers_min_pr','peersMin_pr',int,1),
+                        ('average_median_pr','confAveMedian_pr',int,1),
+                        ('average_min_pr','confAveMin_pr',int,1),
+                        ('perc_50_pr','conf50Median_pr',int,1),
+                        ('perc_75_pr','conf75Median_pr',int,1),
+                        ('perc_90_pr','conf90Median_pr',int,1),
+                        ('perc_99_pr','conf99Median_pr',int,1),
+                        ('diff_median_pr','diffMedian_pr',int,1),
+                        ('diff_max_pr','diffMax_pr',int,1),
+                        ('multi_max_pr','multiplierMax_pr',float,1000),
+                        ('multi_median_pr','multiplierMedian_pr',float,1000),
+                        ('multi_min_pr','multiplierMin_pr',float,1000),
+                        ('api_max_pr','procTimeMax_pr',int,1),
+                        ('api_median_pr','procTimeMedian_pr',int,1),
+                        ('api_min_pr','procTimeMin_pr',int,1),
+                        ('supported_blocks_pr','lenBlockCount_pr',int,1),
+                        ('supported_cemented_pr','lenCemented_pr',int,1),
+                        ('supported_peers_pr','lenPeers_pr',int,1),
+                        ('supported_conf_pr','lenConf50_pr',int,1),
+                        ('supported_proc_pr','lenProcTime_pr',int,1),
+                        ('supported_multiplier_pr','lenMultiplier_pr',int,1),
+                        ('latest_version','pLatestVersionStat',float,1000),
+                        ('tcp','pTypesStat',float,1000),
+                        ('stake_tot','pStakeTotalStat',float,1000),
+                        ('stake_req','pStakeRequiredStat',float,1000),
+                        ('stake_latest','pStakeLatestVersionStat',float,1000),
+                        ('speed','speedTest',int,1),
+                        ('bps_max_10_pr','BPSMax_pr',float,1000),
+                        ('bps_median_10_pr','BPSMedian_pr',float,1000),
+                        ('bps_p75_pr','BPSp75_pr',float,1000),
+                        ('cps_max_10_pr','CPSMax_pr',float,1000),
+                        ('cps_median_10_pr','CPSMedian_pr',float,1000),
+                        ('cps_p75_pr','CPSp75_pr',float,1000),
+                        ('bw_p10_pr','bwLimit10_pr',int,1),
+                        ('bw_p25_pr','bwLimit25_pr',int,1),
+                        ('bw_p50_pr','bwLimit50_pr',int,1),
+                        ('bw_p75_pr','bwLimit75_pr',int,1),
+                        ('bw_p90_pr','bwLimit90_pr',int,1)]
 
         r = dict()
 
@@ -319,4 +354,4 @@ class Service(UrlService):
                 r[new_key] = 0 #replace with 0 if value missing from API
                 continue
 
-        return r or None
+        return r

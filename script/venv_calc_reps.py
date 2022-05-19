@@ -440,7 +440,7 @@ async def getAPI():
     PRStatusLocal = False
 
     telemetryPeers = []
-
+    log.info("getAPI")
     # GET TELEMETRY FOR LOCAL ACCOUNT (can't use normal telemetry)
     try:
         apiStartTime = time.time()

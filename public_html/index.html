@@ -29,7 +29,7 @@
 
   <meta name="nano" content="nano_1gur37mt5cawjg5844bmpg8upo4hbgnbbuwcerdobqoeny4ewoqshowfakfo"/>
 
-	<link rel="stylesheet" type="text/css" href="css/reps.css?ver=20200617-1">
+	<link rel="stylesheet" type="text/css" href="css/reps.css">
   <!--<link rel="stylesheet" href="css/jquery-ui-1.12.1.min.css">-->
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css">
@@ -53,28 +53,51 @@
   <!-- INIT -->
   <script>
     //CUSTOM VARS
-    var monitorsUpdateInterval = 30000; //Interval for client side update
-    //var monitorFile = 'json/monitors.json'
-    //var statFile = 'json/stats.json'
-    var monitorFile = 'https://json.nanoticker.info/?file=monitors'
-    var statFile = 'https://json.nanoticker.info/?file=stats'
+    var monitorsUpdateInterval = 10000; //Interval for client side update
+    var monitorFile = 'json/monitors.json'
+    var statFile = 'json/stats.json'
+    //var monitorFile = 'https://json.nanoticker.info/?file=monitors'
+    //var statFile = 'https://json.nanoticker.info/?file=stats'
     //var explorerBaseUrl = 'https://nanocrawler.cc/explorer/account/'
-    var explorerBaseUrl = 'https://nanolooker.com/account/'
+    var explorerBaseUrl = 'http://localhost:42000/account/'
     //var prColor = '#4a90e2'
     var GAPageName = 'main-net'
     var GATableName = 'Table-main'
   </script>
-  <!-- Google Analytics -->
-  <script>
-    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
 
-    ga('create', 'UA-113887773-1', 'auto');
-    ga('send', 'pageview', GAPageName);
-  </script>
-  <!-- End Google Analytics -->
+  <script type="text/javascript">var netdataServer = "http://localhost:42003"; </script>
+  <script type="text/javascript">var netdataTheme = 'slate'</script>
+  <script type="text/javascript" src="http://localhost:42003/dashboard_custom.js"></script>
+  <script>
+    // Set options for TV operation
+    // This has to be done, after dashboard.js is loaded
+  
+    // destroy charts not shown (lowers memory on the browser)
+    NETDATA.options.current.destroy_on_hide = false;
+  
+    // set this to false, to always show all dimensions
+    NETDATA.options.current.eliminate_zero_dimensions = false;
+  
+    // lower the pressure on this browser
+    NETDATA.options.current.concurrent_refreshes = false;
+  
+    // if the tv browser is too slow (a pi?)
+    // set this to false
+    NETDATA.options.current.parallel_refresher = true;
+  
+    // always update the charts, even if focus is lost
+    NETDATA.options.current.stop_updates_when_focus_is_lost = false;
+  
+    // Since you may render charts from many servers and any of them may
+    // become offline for some time, the charts will break.
+    // This will reload the page every RELOAD_EVERY minutes
+  
+    var RELOAD_EVERY = 5;
+    setTimeout(function(){
+        location.reload();
+    }, RELOAD_EVERY * 60 * 1000);
+  
+    </script>
 </head>
 <body>
 
@@ -1488,8 +1511,8 @@
     // Select a theme.
     // uncomment one of the two themes:
     //var netdataTheme = 'default'; // this is white
-    //var netdataTheme = 'slate'; // this is dark
-    var netdataTheme = 'darkly'; // this is darker
+    var netdataTheme = 'slate'; // this is dark
+    //var netdataTheme = 'darkly'; // this is darker
 
     if (urlParam('theme') != 0) {
       netdataTheme = urlParam('theme')
@@ -1516,38 +1539,9 @@
   -->
   <!--<script type="text/javascript" src="http://remotenode.nano:19999/dashboard.js"></script>-->
   <!--<script type="text/javascript" src="dashboard.js?v20190816"></script>-->
-  <script type="text/javascript">var netdataServer = "https://node-proxy.nanoticker.info";</script>
-  <script type="text/javascript" src="https://node-proxy.nanoticker.info/dashboard_custom.js?v20200617-1"></script>
+  <!-- <script type="text/javascript">var netdataServer = "http://localhost:42003";</script> -->
+  <!-- <script type="text/javascript" src="http://localhost:42003/dashboard_custom.js"></script> -->
 
-  <script>
-  // Set options for TV operation
-  // This has to be done, after dashboard.js is loaded
 
-  // destroy charts not shown (lowers memory on the browser)
-  NETDATA.options.current.destroy_on_hide = false;
-
-  // set this to false, to always show all dimensions
-  NETDATA.options.current.eliminate_zero_dimensions = false;
-
-  // lower the pressure on this browser
-  NETDATA.options.current.concurrent_refreshes = false;
-
-  // if the tv browser is too slow (a pi?)
-  // set this to false
-  NETDATA.options.current.parallel_refresher = true;
-
-  // always update the charts, even if focus is lost
-  NETDATA.options.current.stop_updates_when_focus_is_lost = false;
-
-  // Since you may render charts from many servers and any of them may
-  // become offline for some time, the charts will break.
-  // This will reload the page every RELOAD_EVERY minutes
-
-  var RELOAD_EVERY = 10;
-  setTimeout(function(){
-      location.reload();
-  }, RELOAD_EVERY * 60 * 1000);
-
-  </script>
 </body>
 </html>

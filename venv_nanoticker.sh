@@ -12,7 +12,7 @@ then
     python3 -m venv venv_nanoticker
     . venv_nanoticker/bin/activate
 
-    pip3 install -r ./config/requirements.txt --quiet
+    pip3 install -r venv_requirements.txt --quiet
 
     echo "A new virstaul environment was created. "
     

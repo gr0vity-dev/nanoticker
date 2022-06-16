@@ -46,10 +46,10 @@ if XXX:
     localTelemetryAccount = 'nano_3jsonxwips1auuub94kd3osfg98s6f4x35ksshbotninrc1duswrcauidnue' #telemetry is retrived with another command for this account
     websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
 elif DEV :
-    nodeUrl = 'http://nl_genesis:17076'
-    telemetryAddress = 'nl_genesis'
-    telemetryPort = '17075'
-    websocketAddress  = 'ws://nl_genesis:17078'
+    nodeUrl = 'http://nanobeta:55000'
+    telemetryAddress = 'nanobeta'
+    telemetryPort = '54000'
+    websocketAddress  = 'ws://nanobeta:57000'
     logFile="repstat.log"
     statFile = '/var/www/localhost/htdocs/json/stats.json' #netdata container
     monitorFile = '/var/www/localhost/htdocs/json/monitors.json' #netdata container
@@ -58,7 +58,7 @@ elif DEV :
     activeCurrency = 'nano' #nano, banano or nano-beta
     ninjaMonitors = ''
     aliasUrl = ''
-    localTelemetryAccount = 'nano_1fzwxb8tkmrp8o66xz7tcx65rm57bxdmpitw39ecomiwpjh89zxj33juzt6p' #telemetry is retrived with another command for this account
+    localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x' #telemetry is retrived with another command for this account
     websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
 elif BETA:
     nodeUrl = 'http://127.0.0.1:55000' #beta

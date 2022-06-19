@@ -34,12 +34,11 @@ repsInitD = [
 ]
 
 repsInitB = [
+  'http://nanobeta_monitor:80',
   'https://monitor-beta.mynano.ninja',
-  'http://beta.warai.me',
-  'http://benna.just-dmitry.ru',
+  'http://beta.warai.me', 
   'https://nano-faucet.org/beta/monitor',
-  'https://monitor-beta.nanoticker.info/',
-  'http://116.202.107.97',
+  'https://monitor-beta.nanoticker.info/' ,
 ]
 
 #Default starting node list. Main net

@@ -24,8 +24,8 @@ import math
 import repList
 
 """CUSTOM VARS"""
-BETA = False #SET TO False FOR MAIN NET
-DEV = True #SET TO True when developing
+BETA = True #SET TO False FOR MAIN NET
+DEV = False #SET TO True when developing
 XXX = False
 LIVE = False #Gets switched to True if all else is false
 
@@ -61,17 +61,18 @@ elif DEV :
     localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x' #telemetry is retrived with another command for this account
     websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
 elif BETA:
-    nodeUrl = 'http://127.0.0.1:55000' #beta
-    telemetryAddress = '127.0.0.1'
+    nodeUrl = 'http://nanobeta:55000' #beta
+    telemetryAddress = 'nanobeta'
     telemetryPort = '54000'
-    websocketAddress  = 'ws://127.0.0.1:57000'
-    logFile="/root/betanode/repstat.log"
-    statFile = '/root/scripts/nginx/html/repstat-beta/json/stats-beta.json' #placed in a web server for public access
-    monitorFile = '/root/scripts/nginx/html/repstat-beta/json/monitors-beta.json' #placed in a web server for public access
+    websocketAddress  = 'ws://nanobeta:57000'
+    logFile="repstat.log"
+    statFile = '/var/www/localhost/htdocs/json/stats.json' #netdata container
+    monitorFile = '/var/www/localhost/htdocs/json/monitors.json' #netdata container
     activeCurrency = 'nano-beta' #nano, banano or nano-beta
-    ninjaMonitors = 'https://beta.mynano.ninja/api/accounts/monitors' #beta
+    #ninjaMonitors = 'https://beta.mynano.ninja/api/accounts/monitors' #beta
+    ninjaMonitors = ''
     aliasUrl = ''
-    localTelemetryAccount = 'nano_1json51qn9t7cqebcds1b7f9t3cffbki7qanudqpo67xcpowpt1org1p9rus' #telemetry is retrived with another command for this account
+    localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x' #telemetry is retrived with another command for this account
     websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
 
 else:
@@ -111,8 +112,8 @@ speedtest_websocket_ping_offset_2 = 20 #ping/2 ms latency for the websocket node
 
 """LESS CUSTOM VARS"""
 minCount = 1 #initial required block count
-monitorTimeout = 8 #http request timeout for monitor API
-rpcTimeout = 8 #node rpc timeout
+monitorTimeout = 3 #http request timeout for monitor API
+rpcTimeout = 3 #node rpc timeout
 
 runAPIEvery = 10 #run API check (at fastest) every X sec (the websocket on beta runs every 18sec and main every 60)
 runPeersEvery = 120 #run peer check every X sec

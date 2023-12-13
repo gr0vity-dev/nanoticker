@@ -2,6 +2,12 @@
 """Read data from multiple public nano node monitors and combines stats in json"""
 """Author: Joohansson (Json)"""
 
+
+# Own references
+
+"""CUSTOM VARS"""
+import repList
+import math
 import json
 import simplejson
 import time
@@ -17,89 +23,93 @@ import logging
 import websockets
 from pathlib import Path
 from decimal import Decimal
-from collections import deque #for array shifting
-import math
-
-#Own references
-import repList
-
-"""CUSTOM VARS"""
-BETA = True #SET TO False FOR MAIN NET
-DEV = False #SET TO True when developing
+from collections import deque  # for array shifting
+BETA = True  # SET TO False FOR MAIN NET
+DEV = False  # SET TO True when developing
 XXX = False
-LIVE = False #Gets switched to True if all else is false
-
-
+LIVE = False  # Gets switched to True if all else is false
 
 
 if XXX:
     nodeUrl = 'http://127.0.0.1:55000'
     telemetryAddress = '127.0.0.1'
     telemetryPort = '7075'
-    websocketAddress  = 'ws://127.0.0.1:54321'
-    logFile="repstat.log"
-    statFile = 'stats.json' #placed in a web server for public access
-    monitorFile = 'monitors.json' #placed in a web server for public access
-    activeCurrency = 'nano' #nano, banano or nano-beta
+    websocketAddress = 'ws://127.0.0.1:54321'
+    logFile = "repstat.log"
+    statFile = 'stats.json'  # placed in a web server for public access
+    monitorFile = 'monitors.json'  # placed in a web server for public access
+    activeCurrency = 'nano'  # nano, banano or nano-beta
     ninjaMonitors = 'https://mynano.ninja/api/accounts/monitors'
     aliasUrl = 'https://mynano.ninja/api/accounts/aliases'
-    localTelemetryAccount = 'nano_3jsonxwips1auuub94kd3osfg98s6f4x35ksshbotninrc1duswrcauidnue' #telemetry is retrived with another command for this account
-    websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
-elif DEV :
-    nodeUrl = 'http://nanobeta:55000'
+    # telemetry is retrived with another command for this account
+    localTelemetryAccount = 'nano_3jsonxwips1auuub94kd3osfg98s6f4x35ksshbotninrc1duswrcauidnue'
+    # telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
+    websocketPeerDropLimit = 60
+elif DEV:
+    nodeUrl = 'https://rpcproxy.bnano.info/proxy'
     telemetryAddress = 'nanobeta'
     telemetryPort = '54000'
-    websocketAddress  = 'ws://nanobeta:57000'
-    logFile="repstat.log"
-    statFile = '/var/www/localhost/htdocs/json/stats.json' #netdata container
-    monitorFile = '/var/www/localhost/htdocs/json/monitors.json' #netdata container
-    #statFile = '/var/www/html/json/stats.json' #ubuntu container
-    #monitorFile = '/var/www/html/json/monitors.json' #ubuntu container
-    activeCurrency = 'nano' #nano, banano or nano-beta
+    websocketAddress = 'ws://nanobeta:57000'
+    logFile = "repstat.log"
+    statFile = '/var/www/localhost/htdocs/json/stats.json'  # netdata container
+    monitorFile = '/var/www/localhost/htdocs/json/monitors.json'  # netdata container
+    # statFile = '/var/www/html/json/stats.json' #ubuntu container
+    # monitorFile = '/var/www/html/json/monitors.json' #ubuntu container
+    activeCurrency = 'nano'  # nano, banano or nano-beta
     ninjaMonitors = ''
     aliasUrl = ''
-    localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x' #telemetry is retrived with another command for this account
-    websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
+    # telemetry is retrived with another command for this account
+    localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x'
+    # telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
+    websocketPeerDropLimit = 60
 elif BETA:
-    nodeUrl = 'http://nanobeta:55000' #beta
+    nodeUrl = 'http://nanobeta:55000'  # beta
     telemetryAddress = 'nanobeta'
     telemetryPort = '54000'
-    websocketAddress  = 'ws://nanobeta:57000'
-    logFile="repstat.log"
-    statFile = '/var/www/localhost/htdocs/json/stats.json' #netdata container
-    monitorFile = '/var/www/localhost/htdocs/json/monitors.json' #netdata container
-    activeCurrency = 'nano-beta' #nano, banano or nano-beta
-    #ninjaMonitors = 'https://beta.mynano.ninja/api/accounts/monitors' #beta
+    websocketAddress = 'wss://nanolooker.bnano.info/ws'
+    logFile = "repstat.log"
+    statFile = '/var/www/localhost/htdocs/json/stats.json'  # netdata container
+    monitorFile = '/var/www/localhost/htdocs/json/monitors.json'  # netdata container
+    activeCurrency = 'nano-beta'  # nano, banano or nano-beta
+    # ninjaMonitors = 'https://beta.mynano.ninja/api/accounts/monitors' #beta
     ninjaMonitors = ''
     aliasUrl = ''
-    localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x' #telemetry is retrived with another command for this account
-    websocketPeerDropLimit = 60 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
+    # telemetry is retrived with another command for this account
+    localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x'
+    # telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
+    websocketPeerDropLimit = 60
 
 else:
     LIVE = True
-    nodeUrl = 'http://[::1]:7076' #main
+    nodeUrl = 'http://[::1]:7076'  # main
     telemetryAddress = '127.0.0.1'
     telemetryPort = '7075'
-    websocketAddress  = 'ws://[::1]:54321'
-    logFile="/root/logs/repstat.log"
-    statFile = '/root/scripts/nginx/html/repstat/json/stats.json' #placed in a web server for public access
-    monitorFile = '/root/scripts/nginx/html/repstat/json/monitors.json' #placed in a web server for public access
-    activeCurrency = 'nano' #nano, banano or nano-beta
+    websocketAddress = 'ws://[::1]:54321'
+    logFile = "/root/logs/repstat.log"
+    # placed in a web server for public access
+    statFile = '/root/scripts/nginx/html/repstat/json/stats.json'
+    # placed in a web server for public access
+    monitorFile = '/root/scripts/nginx/html/repstat/json/monitors.json'
+    activeCurrency = 'nano'  # nano, banano or nano-beta
     ninjaMonitors = 'https://mynano.ninja/api/accounts/monitors'
     aliasUrl = 'https://mynano.ninja/api/accounts/aliases'
-    localTelemetryAccount = 'nano_1iuz18n4g4wfp9gf7p1s8qkygxw7wx9qfjq6a9aq68uyrdnningdcjontgar' #telemetry is retrived with another command for this account
-    websocketPeerDropLimit = 180 #telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
+    # telemetry is retrived with another command for this account
+    localTelemetryAccount = 'nano_1iuz18n4g4wfp9gf7p1s8qkygxw7wx9qfjq6a9aq68uyrdnningdcjontgar'
+    # telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
+    websocketPeerDropLimit = 180
 
 # Speed test source account
 workUrl = 'http://127.0.0.1:9971'
-workDiff = 'fffffff800000000' # 1x
+workDiff = 'fffffff800000000'  # 1x
 source_account = ''
 priv_key = ''
 speedtest_rep = ''
-speedtest_websocket_1 = '' # Preferably in another country
-speedtest_websocket_2 = '' # Leave blank if you don't have one
-speedtest_websocket_ping_offset_1 = 45 #ping/2 ms latency for the websocket node to be deducted from the speed delay
-speedtest_websocket_ping_offset_2 = 20 #ping/2 ms latency for the websocket node to be deducted from the speed delay
+speedtest_websocket_1 = ''  # Preferably in another country
+speedtest_websocket_2 = ''  # Leave blank if you don't have one
+# ping/2 ms latency for the websocket node to be deducted from the speed delay
+speedtest_websocket_ping_offset_1 = 45
+# ping/2 ms latency for the websocket node to be deducted from the speed delay
+speedtest_websocket_ping_offset_2 = 20
 
 
 # For pushing stats to the blockchain (no longer used)
@@ -111,43 +121,49 @@ speedtest_websocket_ping_offset_2 = 20 #ping/2 ms latency for the websocket node
 # difficulty_account = 'nano_1diff1tojcgttgewe1pkm4yyjwbbb51oewbro3wtsnxjrtz5i9iuuq3f4frt'
 
 """LESS CUSTOM VARS"""
-minCount = 1 #initial required block count
-monitorTimeout = 3 #http request timeout for monitor API
-rpcTimeout = 3 #node rpc timeout
+minCount = 1  # initial required block count
+monitorTimeout = 3  # http request timeout for monitor API
+rpcTimeout = 3  # node rpc timeout
 
-runAPIEvery = 10 #run API check (at fastest) every X sec (the websocket on beta runs every 18sec and main every 60)
-runPeersEvery = 120 #run peer check every X sec
-runStatEvery = 3600 #publish stats to blockchain every x sec
-maxURLRequests = 250 #maximum concurrent requests
-websocketCountDownLimit = 1 #call API if x sec has passed since last websocket message
-runSpeedTestEvery = 120 #run speed test every X sec
+# run API check (at fastest) every X sec (the websocket on beta runs every 18sec and main every 60)
+runAPIEvery = 10
+runPeersEvery = 120  # run peer check every X sec
+runStatEvery = 3600  # publish stats to blockchain every x sec
+maxURLRequests = 250  # maximum concurrent requests
+# call API if x sec has passed since last websocket message
+websocketCountDownLimit = 1
+runSpeedTestEvery = 120  # run speed test every X sec
 
 """CONSTANTS"""
-pLatestVersionStat = 0 #percentage running latest protocol version
-pTypesStat = 0 #percentage running tcp
-pStakeTotalStat = 0 #percentage connected online weight of maximum
-pStakeRequiredStat = 0 #percentage of connected online weight of maxium required for voting
-pStakeLatestVersionStat = 0 #percentage of connected online weight that is on latest version
-confCountLimit = 100 #lower limit for block count to include confirmation average
-confSpanLimit = 10000 #lower limit for time span to include confirmation average
+pLatestVersionStat = 0  # percentage running latest protocol version
+pTypesStat = 0  # percentage running tcp
+pStakeTotalStat = 0  # percentage connected online weight of maximum
+# percentage of connected online weight of maxium required for voting
+pStakeRequiredStat = 0
+# percentage of connected online weight that is on latest version
+pStakeLatestVersionStat = 0
+confCountLimit = 100  # lower limit for block count to include confirmation average
+confSpanLimit = 10000  # lower limit for time span to include confirmation average
 
-if DEV :
+if DEV:
     repsInit = repList.repsInitD
     blacklist = repList.blacklistD
     checkCPSEvery = 1
 elif BETA:
     repsInit = repList.repsInitB
     blacklist = repList.blacklistB
-    checkCPSEvery = 1 #inverval for calculating BPS/CPS from telemetry. Total time is runAPIEvery * checkCPSEvery
+    # inverval for calculating BPS/CPS from telemetry. Total time is runAPIEvery * checkCPSEvery
+    checkCPSEvery = 1
 else:
     repsInit = repList.repsInitM
     blacklist = repList.blacklistM
-    checkCPSEvery = 1 #inverval for calculating BPS/CPS from telemetry. Total time is runAPIEvery * checkCPSEvery
+    # inverval for calculating BPS/CPS from telemetry. Total time is runAPIEvery * checkCPSEvery
+    checkCPSEvery = 1
 
 """VARIABLES"""
 reps = repsInit
-latestOnlineWeight = 0 #used for calculating PR status
-latestRunStatTime = 0 #fine tuning loop time for stats
+latestOnlineWeight = 0  # used for calculating PR status
+latestRunStatTime = 0  # fine tuning loop time for stats
 latestGlobalBlocks = []
 latestGlobalPeers = []
 latestGlobalDifficulty = []
@@ -169,10 +185,10 @@ previousLocalMax = deque([0]*checkCPSEvery)
 previousLocalCemented = deque([0]*checkCPSEvery)
 
 # individual BPS CPS object
-indiPeersPrev = {'ip':{}}
+indiPeersPrev = {'ip': {}}
 
 # IPs that has a monitor. To get rid of duplicates in telemetry
-monitorIPExistArray = {'ip':{}}
+monitorIPExistArray = {'ip': {}}
 
 # account / alias pairs
 aliases = []
@@ -190,8 +206,10 @@ speedtest_last_valid = time.time()
 
 filename = Path(logFile)
 filename.touch(exist_ok=True)
-logging.basicConfig(level=logging.INFO,filename=logFile, filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, filename=logFile,
+                    filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
+
 
 def percentile(data, percentile):
     n = len(data)
@@ -201,7 +219,9 @@ def percentile(data, percentile):
     else:
         return sorted(data)[int(math.ceil(p)) - 1]
 
-#Calculate the average value of the 50% middle percentile from a list
+# Calculate the average value of the 50% middle percentile from a list
+
+
 def median(lst):
     try:
         if lst == None or lst == []:
@@ -223,7 +243,7 @@ def median(lst):
 
             endIndex = index + (lstLen // 4) + 1
             range = sortedLst[startIndex:endIndex]
-            return sum(range) / len(range) #average of the sub list
+            return sum(range) / len(range)  # average of the sub list
 
         # Do normal median
         else:
@@ -232,7 +252,8 @@ def median(lst):
             else:
                 return (sortedLst[index] + sortedLst[index + 1])/2.0
     except Exception as e:
-        log.warning(timeLog("Could not calculate median value. %r" %e))
+        log.warning(timeLog("Could not calculate median value. %r" % e))
+
 
 def medianNormal(lst):
     sortedLst = sorted(lst)
@@ -243,6 +264,7 @@ def medianNormal(lst):
         return sortedLst[index]
     else:
         return (sortedLst[index] + sortedLst[index + 1])/2.0
+
 
 async def fetch(session, url):
     try:
@@ -255,6 +277,7 @@ async def fetch(session, url):
                 pass
     except:
         pass
+
 
 async def getMonitor(url):
     try:
@@ -269,6 +292,7 @@ async def getMonitor(url):
     except:
         pass
 
+
 async def verifyMonitor(url):
     try:
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
@@ -276,12 +300,13 @@ async def verifyMonitor(url):
             try:
                 rjson = json.loads(r)
                 if int(rjson['currentBlock']) > 0:
-                    url = url.replace('/api.php','')
+                    url = url.replace('/api.php', '')
                     return [rjson['nanoNodeAccount'], url]
             except:
                 pass
     except:
         pass
+
 
 async def getTelemetryRPC(params, ipv6):
     try:
@@ -292,13 +317,15 @@ async def getTelemetryRPC(params, ipv6):
                 r = None
                 r = await session.post(nodeUrl, json=params)
                 j = await r.json()
-                timeDiff = round((time.time()-callTime)*1000) #request time
+                timeDiff = round((time.time()-callTime)*1000)  # request time
                 return [j, True, params['address'], ipv6, timeDiff, time.time(), r]
             except:
-                log.warning(timeLog("Bad telemtry response from node. Probably timeout."))
+                log.warning(
+                    timeLog("Bad telemtry response from node. Probably timeout."))
                 return [{}, False, params['address'], ipv6, 0, time.time(), r]
     except:
         pass
+
 
 async def getRegularRPC(params):
     try:
@@ -310,11 +337,13 @@ async def getRegularRPC(params):
                     r = None
                     r = await session.post(nodeUrl, json=params)
                     j = await r.json()
-                    timeDiff = round((time.time()-callTime)*1000) #request time
+                    timeDiff = round((time.time()-callTime)
+                                     * 1000)  # request time
                     return [j, True, timeDiff, r]
 
                 except:
-                    log.warning(timeLog("Bad rpc response from node. Probably timeout."))
+                    log.warning(
+                        timeLog("Bad rpc response from node. Probably timeout."))
                     return [{}, False, timeDiff, r]
 
     except asyncio.TimeoutError as t:
@@ -324,6 +353,8 @@ async def getRegularRPC(params):
         pass
 
 # Each websocket message will reset the timer and when enough time has passed between two messages the API function is called and timer reset
+
+
 async def websocketCountDown():
     global websocketTimer
     global websocketCountDownTimer
@@ -333,8 +364,8 @@ async def websocketCountDown():
         if apiShouldCall and time.time() > websocketCountDownTimer + websocketCountDownLimit:
             # if enough time has passed since last run
             if time.time() > websocketTimer + runAPIEvery:
-                websocketTimer = time.time() # reset timer
-                websocketCountDownTimer = time.time() # reset timer
+                websocketTimer = time.time()  # reset timer
+                websocketCountDownTimer = time.time()  # reset timer
                 apiShouldCall = False
                 await getAPI()
         await asyncio.sleep(0.1)
@@ -346,6 +377,7 @@ except ImportError:
     pass
 else:
     SSL_PROTOCOLS = (*SSL_PROTOCOLS, uvloop.loop.SSLProtocol)
+
 
 def ignore_aiohttp_ssl_error(loop):
     """Ignore aiohttp #3535 / cpython #13548 issue with SSL data after close
@@ -368,6 +400,7 @@ def ignore_aiohttp_ssl_error(loop):
         return
 
     orig_handler = loop.get_exception_handler()
+
     def ignore_ssl_error(loop, context):
         if context.get("message") in {
             "SSL error in data received",
@@ -382,7 +415,8 @@ def ignore_aiohttp_ssl_error(loop):
                 and isinstance(protocol, SSL_PROTOCOLS)
             ):
                 if loop.get_debug():
-                    asyncio.log.logger.debug('Ignoring asyncio SSL KRB5_S_INIT error')
+                    asyncio.log.logger.debug(
+                        'Ignoring asyncio SSL KRB5_S_INIT error')
                 return
         if orig_handler is not None:
             orig_handler(loop, context)
@@ -391,13 +425,16 @@ def ignore_aiohttp_ssl_error(loop):
 
     loop.set_exception_handler(ignore_ssl_error)
 
+
 def chunks(l, n):
     """Yield successive n-sized chunks from l"""
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
+
 def timeLog(msg):
     return str(datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')) + ": " + msg
+
 
 async def apiSleep(startTime):
     sleep = runAPIEvery - (time.time() - startTime)
@@ -405,20 +442,24 @@ async def apiSleep(startTime):
         sleep = 0
     await asyncio.sleep(sleep)
 
+
 async def peerSleep(startTime):
     sleep = runPeersEvery - (time.time() - startTime)
     if sleep < 0:
         sleep = 0
     await asyncio.sleep(sleep)
 
+
 async def statSleep(startTime):
     global latestRunStatTime
 
-    sleep = runStatEvery - (time.time() - startTime) - (time.time() - round(latestRunStatTime/10)*10 - runStatEvery)
+    sleep = runStatEvery - (time.time() - startTime) - \
+        (time.time() - round(latestRunStatTime/10)*10 - runStatEvery)
     latestRunStatTime = time.time()
     if sleep < 0:
         sleep = 0
     await asyncio.sleep(sleep)
+
 
 async def getAPI():
     global minCount
@@ -490,7 +531,7 @@ async def getAPI():
 
         if 'block_count' in telemetry:
             block_count_tele = int(telemetry['block_count'])
-            if block_count_tele >= minCount: #only add to stats if above limit
+            if block_count_tele >= minCount:  # only add to stats if above limit
                 peerHasEnoughBlocks = True
                 countData.append(block_count_tele)
         if peerHasEnoughBlocks:
@@ -510,7 +551,8 @@ async def getAPI():
                 peer_count_tele = int(telemetry['peer_count'])
                 peersData.append(peer_count_tele)
             if 'protocol_version' in telemetry:
-                protocol_version_number_tele = int(telemetry['protocol_version'])
+                protocol_version_number_tele = int(
+                    telemetry['protocol_version'])
             if 'major_version' in telemetry:
                 major_version_tele = telemetry['major_version']
             if 'minor_version' in telemetry:
@@ -524,10 +566,12 @@ async def getAPI():
 
             BPSLocal = -1
             if block_count_tele > 0 and previousLocalMax[0] > 0 and (timeStamp_tele - previousLocalTimeStamp[0]) > 0 and previousLocalTimeStamp[0] > 0:
-                BPSLocal = (block_count_tele - previousLocalMax[0]) / (timeStamp_tele - previousLocalTimeStamp[0])
+                BPSLocal = (
+                    block_count_tele - previousLocalMax[0]) / (timeStamp_tele - previousLocalTimeStamp[0])
             CPSLocal = -1
             if cemented_count_tele > 0 and previousLocalCemented[0] > 0 and (timeStamp_tele - previousLocalTimeStamp[0]) > 0 and previousLocalTimeStamp[0] > 0:
-                CPSLocal = (cemented_count_tele - previousLocalCemented[0]) / (timeStamp_tele - previousLocalTimeStamp[0])
+                CPSLocal = (cemented_count_tele - previousLocalCemented[0]) / (
+                    timeStamp_tele - previousLocalTimeStamp[0])
 
             # ms to sec (if reported in ms)
             if timeStamp_tele > 9999999999 and previousLocalTimeStamp[0] > 9999999999 and BPSLocal != -1:
@@ -544,7 +588,7 @@ async def getAPI():
                 previousLocalCemented.append(cemented_count_tele)
                 previousLocalCemented.popleft()
 
-            #get weight
+            # get weight
             params = {
                 "action": "account_weight",
                 "account": localTelemetryAccount
@@ -554,31 +598,34 @@ async def getAPI():
                 resp_weight = await getRegularRPC(params)
                 reqTime = resp_weight[2]
                 if 'weight' in resp_weight[0]:
-                    weight = int(resp_weight[0]['weight']) / int(1000000000000000000000000000000)
+                    weight = int(resp_weight[0]['weight']) / \
+                        int(1000000000000000000000000000000)
                     if (weight >= latestOnlineWeight*0.001):
                         PRStatus = True
-                        PRStatusLocal = True #used for comparing local BPS/CPS with the rest
+                        PRStatusLocal = True  # used for comparing local BPS/CPS with the rest
                     else:
                         PRStatus = False
             except Exception as e:
-                log.warning(timeLog("Could not read local weight from node RPC. %r" %e))
+                log.warning(
+                    timeLog("Could not read local weight from node RPC. %r" % e))
                 pass
 
-            teleTemp = {"ip":'', "protocol_version":protocol_version_number_tele, "type":"", "weight":weight, "account": localTelemetryAccount,
-            "block_count":block_count_tele, "cemented_count":cemented_count_tele, "unchecked_count":unchecked_count_tele,
-            "account_count":account_count_tele, "bandwidth_cap":bandwidth_cap_tele, "peer_count":peer_count_tele, "bps":BPSLocal, "cps":CPSLocal,
-            "vendor_version":str(major_version_tele) + '.' + str(minor_version_tele) + '.' + str(patch_version_tele) + '.' + str(pre_release_version_tele), "uptime":uptime_tele, "PR":PRStatus, "req_time":reqTime, "time_stamp":timeStamp_tele,
-            "tsu": 0}
+            teleTemp = {"ip": '', "protocol_version": protocol_version_number_tele, "type": "", "weight": weight, "account": localTelemetryAccount,
+                        "block_count": block_count_tele, "cemented_count": cemented_count_tele, "unchecked_count": unchecked_count_tele,
+                        "account_count": account_count_tele, "bandwidth_cap": bandwidth_cap_tele, "peer_count": peer_count_tele, "bps": BPSLocal, "cps": CPSLocal,
+                        "vendor_version": str(major_version_tele) + '.' + str(minor_version_tele) + '.' + str(patch_version_tele) + '.' + str(pre_release_version_tele), "uptime": uptime_tele, "PR": PRStatus, "req_time": reqTime, "time_stamp": timeStamp_tele,
+                        "tsu": 0}
 
-            telemetryPeers.append(teleTemp) # add local account rep
+            telemetryPeers.append(teleTemp)  # add local account rep
 
     except Exception as e:
-        log.warning(timeLog("Could not read local telemetry from node RPC. %r" %e))
+        log.warning(
+            timeLog("Could not read local telemetry from node RPC. %r" % e))
         pass
 
     # GET TELEMETRY DATA FROM PEERS
 
-    #PR ONLY
+    # PR ONLY
     countData_pr = []
     cementedData_pr = []
     uncheckedData_pr = []
@@ -614,16 +661,18 @@ async def getAPI():
 
             # drop peer from the list if too old
             if 'timestamp_local' in metric:
-                timestamp_local_tele = metric['timestamp_local'] + websocketCountDownLimit + (time.time() - apiStartTime)
+                timestamp_local_tele = metric['timestamp_local'] + \
+                    websocketCountDownLimit + (time.time() - apiStartTime)
                 tsuDiff = time.time() - timestamp_local_tele
                 if time.time() > timestamp_local_tele + websocketPeerDropLimit:
                     del indiPeersPrev[key]
-                    log.info(timeLog("Dropping peer telemetry data due to inactivity: " + key))
+                    log.info(
+                        timeLog("Dropping peer telemetry data due to inactivity: " + key))
                     continue
 
             if 'blockCount' in metric:
                 block_count_tele = int(metric['blockCount'][-1])
-                if block_count_tele >= minCount: #only add to stats if above limit
+                if block_count_tele >= minCount:  # only add to stats if above limit
                     peerHasEnoughBlocks = True
                     countData.append(block_count_tele)
 
@@ -647,7 +696,8 @@ async def getAPI():
                     peer_count_tele = int(metric['peer_count'])
                     peersData.append(peer_count_tele)
                 if 'protocol_version' in metric:
-                    protocol_version_number_tele = int(metric['protocol_version'])
+                    protocol_version_number_tele = int(
+                        metric['protocol_version'])
                 if 'major_version' in metric:
                     major_version_tele = metric['major_version']
                 if 'minor_version' in metric:
@@ -667,16 +717,17 @@ async def getAPI():
                 if 'cps' in metric:
                     CPSPeer = metric['cps']
 
-                teleTemp = {"ip":'['+address_tele+']:'+port_tele, "protocol_version":protocol_version_number_tele, "type":"", "weight":-1, "account": "",
-                "block_count":block_count_tele, "cemented_count":cemented_count_tele, "unchecked_count":unchecked_count_tele,
-                "account_count":account_count_tele, "bandwidth_cap":bandwidth_cap_tele, "peer_count":peer_count_tele, "bps":BPSPeer, "cps":CPSPeer,
-                "vendor_version":str(major_version_tele) + '.' + str(minor_version_tele) + '.' + str(patch_version_tele) + '.' + str(pre_release_version_tele), "uptime":uptime_tele, "PR":False, "req_time":'0', "time_stamp":timeStamp_tele,
-                "tsu": tsuDiff}
+                teleTemp = {"ip": '['+address_tele+']:'+port_tele, "protocol_version": protocol_version_number_tele, "type": "", "weight": -1, "account": "",
+                            "block_count": block_count_tele, "cemented_count": cemented_count_tele, "unchecked_count": unchecked_count_tele,
+                            "account_count": account_count_tele, "bandwidth_cap": bandwidth_cap_tele, "peer_count": peer_count_tele, "bps": BPSPeer, "cps": CPSPeer,
+                            "vendor_version": str(major_version_tele) + '.' + str(minor_version_tele) + '.' + str(patch_version_tele) + '.' + str(pre_release_version_tele), "uptime": uptime_tele, "PR": False, "req_time": '0', "time_stamp": timeStamp_tele,
+                            "tsu": tsuDiff}
 
                 telemetryPeers.append(teleTemp)
 
     except Exception as e:
-        log.warning(timeLog("Could not read raw telemetry from node RPC. %r" %e))
+        log.warning(
+            timeLog("Could not read raw telemetry from node RPC. %r" % e))
         pass
 
     # GET WEIGHT FROM CONFIRMATION QUORUM
@@ -687,33 +738,40 @@ async def getAPI():
     try:
         resp = await getRegularRPC(params)
 
-        #Find matching IP and include weight in original peer list
+        # Find matching IP and include weight in original peer list
         if 'peers' in resp[0]:
             for peer in resp[0]['peers']:
-                for i,cPeer in enumerate(telemetryPeers):
+                for i, cPeer in enumerate(telemetryPeers):
                     if peer['ip'] == cPeer['ip'] and peer['ip'] != '':
                         # append the relevant PR stats here as well
                         weight = peer['weight']
-                        if weight != -1: #only update if it has been given
-                            weight = int(weight) / int(1000000000000000000000000000000)
+                        if weight != -1:  # only update if it has been given
+                            weight = int(weight) / \
+                                int(1000000000000000000000000000000)
                             if (weight >= latestOnlineWeight*0.001):
                                 PRStatus = True
                                 if cPeer['block_count'] != -1:
-                                    countData_pr.append(int(cPeer['block_count']))
+                                    countData_pr.append(
+                                        int(cPeer['block_count']))
                                 if cPeer['cemented_count'] != -1:
-                                    cementedData_pr.append(int(cPeer['cemented_count']))
+                                    cementedData_pr.append(
+                                        int(cPeer['cemented_count']))
                                 if cPeer['unchecked_count'] != -1:
-                                    uncheckedData_pr.append(int(cPeer['unchecked_count']))
+                                    uncheckedData_pr.append(
+                                        int(cPeer['unchecked_count']))
                                 if cPeer['peer_count'] != -1:
-                                    peersData_pr.append(int(cPeer['peer_count']))
+                                    peersData_pr.append(
+                                        int(cPeer['peer_count']))
                             else:
                                 PRStatus = False
 
-                        telemetryPeers[i] = dict(cPeer, **{"weight": weight, "account": peer['account'], "PR":PRStatus}) #update previous vaule
+                        # update previous vaule
+                        telemetryPeers[i] = dict(
+                            cPeer, **{"weight": weight, "account": peer['account'], "PR": PRStatus})
                         continue
 
     except Exception as e:
-        log.warning(timeLog("Could not read quorum from node RPC. %r" %e))
+        log.warning(timeLog("Could not read quorum from node RPC. %r" % e))
         pass
 
     # Append the BPS CPS data
@@ -730,7 +788,7 @@ async def getAPI():
         # Also include block_count to determine correct max values later
         for p in telemetryPeers:
             if p['bps'] != -1 and p['block_count'] != -1:
-                #skip if the node is out of sync
+                # skip if the node is out of sync
                 if int(p['block_count']) < minCount:
                     continue
 
@@ -739,7 +797,7 @@ async def getAPI():
                 if (p['PR'] == True):
                     bpsData_pr.append(list)
 
-            if p['cps'] != -1  and p['cemented_count'] != -1:
+            if p['cps'] != -1 and p['cemented_count'] != -1:
                 list = [float(p['cps']), int(p['cemented_count'])]
                 cpsData.append(list)
                 if (p['PR'] == True):
@@ -752,11 +810,11 @@ async def getAPI():
                     bwData_pr.append(bw)
 
     except Exception as e:
-        log.warning(timeLog("Could not append BPS and CPS data. %r" %e))
+        log.warning(timeLog("Could not append BPS and CPS data. %r" % e))
         pass
 
     # GET MONITOR DATA
-    #log.info(timeLog("Get API"))
+    # log.info(timeLog("Get API"))
     jsonData = []
     """Split URLS in max X concurrent requests"""
     for chunk in chunks(reps, maxURLRequests):
@@ -764,7 +822,8 @@ async def getAPI():
         for path in chunk:
             if len(path) > 6:
                 if path[-4:] != '.htm':
-                    tasks.append(asyncio.ensure_future(getMonitor('%s/api.php' %path)))
+                    tasks.append(asyncio.ensure_future(
+                        getMonitor('%s/api.php' % path)))
                 else:
                     tasks.append(asyncio.ensure_future(getMonitor(path)))
 
@@ -773,7 +832,7 @@ async def getAPI():
                 await asyncio.gather(*tasks)
 
         except asyncio.TimeoutError as t:
-            #log.warning(timeLog('Monitor API read timeout: %r' %t))
+            # log.warning(timeLog('Monitor API read timeout: %r' %t))
             pass
         except Exception as e:
             log.warning(timeLog(e))
@@ -783,13 +842,14 @@ async def getAPI():
                 if task.result() is not None and task.result():
                     if (task.result()[1]):
                         jsonData.append([task.result()[0], task.result()[3]])
-                        #log.info(timeLog('Valid: ' + task.result()[0]['nanoNodeName']))
+                        # log.info(timeLog('Valid: ' + task.result()[0]['nanoNodeName']))
                     else:
-                        log.warning(timeLog('Could not read json from %s. Result: %s' %(task.result()[2], task.result()[4])))
+                        log.warning(timeLog('Could not read json from %s. Result: %s' % (
+                            task.result()[2], task.result()[4])))
 
             except Exception as e:
-                #for example when tasks timeout
-                log.warning(timeLog('Could not read response. Error: %r' %e))
+                # for example when tasks timeout
+                log.warning(timeLog('Could not read response. Error: %r' % e))
                 pass
 
             finally:
@@ -807,7 +867,7 @@ async def getAPI():
     multiplierData = []
     monitorCount = 0
 
-    #PR ONLY
+    # PR ONLY
     syncData_pr = []
     conf50Data_pr = []
     conf75Data_pr = []
@@ -819,16 +879,16 @@ async def getAPI():
     multiplierData_pr = []
     monitorCount_pr = 0
 
-    tsu = -1 # time since update not valid for node monitors
+    tsu = -1  # time since update not valid for node monitors
 
-    #Convert all API json inputs
-    fail = False #If a REP does not support one or more of the entries
-    supportedReps = [] #reps supporting all parameters
-    telemetryReps = [] #reps collected with telemetry
+    # Convert all API json inputs
+    fail = False  # If a REP does not support one or more of the entries
+    supportedReps = []  # reps supporting all parameters
+    telemetryReps = []  # reps collected with telemetry
 
     try:
         if jsonData is None or type(jsonData[0][0]) == bool:
-            #log.info(timeLog('type error'))
+            # log.info(timeLog('type error'))
             return
 
     except:
@@ -842,7 +902,7 @@ async def getAPI():
             try:
                 count = int(j['currentBlock'])
 
-                #skip if the node is out of sync
+                # skip if the node is out of sync
                 if count < minCount:
                     continue
             except Exception as e:
@@ -855,7 +915,7 @@ async def getAPI():
                 name = -1
                 fail = True
 
-            #Validate if the monitor is for nano, banano or nano-beta (if possible)
+            # Validate if the monitor is for nano, banano or nano-beta (if possible)
             try:
                 currency = j['currency']
                 if currency != activeCurrency:
@@ -973,36 +1033,37 @@ async def getAPI():
             bw = -1
 
             try:
-                #Match IP and replace weight and telemetry data
+                # Match IP and replace weight and telemetry data
                 skipPeer = False
                 for p in telemetryPeers:
                     # first check if the account exist in the monitorIPExistArray (monitors whose URL was guessed from IP)
                     tempIP = p['ip']
                     ipFound = False
                     if tempIP != "":
-                        if '[::ffff:' in tempIP: #ipv4
+                        if '[::ffff:' in tempIP:  # ipv4
                             tempIP = re.search('ffff:(.*)\]:', tempIP).group(1)
 
                         for ip in monitorIPExistArray:
-                            if tempIP == ip and monitorIPExistArray[ip]['account'] == str(nanoNodeAccount): #include this
+                            # include this
+                            if tempIP == ip and monitorIPExistArray[ip]['account'] == str(nanoNodeAccount):
                                 ipFound = True
                                 break
 
                     if str(nanoNodeAccount) == str(p['account']) or ipFound:
-                        if int(p['weight']) != -1: #only update if it has been given
+                        if int(p['weight']) != -1:  # only update if it has been given
                             weight = int(p['weight'])
 
-                        #telemetry
+                        # telemetry
                         if p['vendor_version'] != -1:
                             version = p['vendor_version']
                         if p['protocol_version'] != -1:
                             protocolVersion = int(p['protocol_version'])
                         if p['block_count'] != -1:
-                            #skip if the node is out of sync
+                            # skip if the node is out of sync
                             if int(p['block_count']) < minCount:
                                 skipPeer = True
 
-                            isTelemetryMatch = True #only show as telemetry if there are actual data available
+                            isTelemetryMatch = True  # only show as telemetry if there are actual data available
                             count = int(p['block_count'])
                         if p['cemented_count'] != -1:
                             cemented = int(p['cemented_count'])
@@ -1028,10 +1089,11 @@ async def getAPI():
                         break
 
             except Exception as e:
-                log.warning(timeLog("Could not match ip and replace weight and telemetry data. %r" %e))
+                log.warning(
+                    timeLog("Could not match ip and replace weight and telemetry data. %r" % e))
                 pass
 
-            #skip if the node is out of sync
+            # skip if the node is out of sync
             try:
                 if skipPeer == True:
                     continue
@@ -1084,16 +1146,16 @@ async def getAPI():
                 # combined reps from monitors and telemetry data
                 nanoAccount = nanoNodeAccount
                 if (nanoAccount and nanoAccount != -1):
-                    nanoAccount = nanoAccount.replace('xrb_','nano_')
-                supportedReps.append({'name':name, 'nanoNodeAccount':nanoAccount,
-                'version':version, 'protocolVersion':protocolVersion, 'storeVendor':storeVendor, 'currentBlock':count, 'cementedBlocks':cemented,
-                'unchecked':unchecked, 'numPeers':peers, 'confAve':confAve, 'confMedian':conf50, 'weight':weight, 'bps':bps, 'cps':cps,
-                'memory':memory, 'procTime':procTime, 'multiplier':multiplier, 'supported':not fail, 'PR':PRStatus, 'isTelemetry':isTelemetryMatch,
-                'bandwidthCap':bw, 'tsu':tsu})
+                    nanoAccount = nanoAccount.replace('xrb_', 'nano_')
+                supportedReps.append({'name': name, 'nanoNodeAccount': nanoAccount,
+                                      'version': version, 'protocolVersion': protocolVersion, 'storeVendor': storeVendor, 'currentBlock': count, 'cementedBlocks': cemented,
+                                      'unchecked': unchecked, 'numPeers': peers, 'confAve': confAve, 'confMedian': conf50, 'weight': weight, 'bps': bps, 'cps': cps,
+                                      'memory': memory, 'procTime': procTime, 'multiplier': multiplier, 'supported': not fail, 'PR': PRStatus, 'isTelemetry': isTelemetryMatch,
+                                      'bandwidthCap': bw, 'tsu': tsu})
                 fail = False
 
             except Exception as e:
-                log.warning(timeLog("Could not append supported rep. %r" %e))
+                log.warning(timeLog("Could not append supported rep. %r" % e))
                 pass
 
         else:
@@ -1104,23 +1166,23 @@ async def getAPI():
         for teleRep in telemetryPeers:
             found = False
             for supRep in supportedReps:
-                if teleRep['account'] == supRep['nanoNodeAccount']: #do not include this
+                if teleRep['account'] == supRep['nanoNodeAccount']:  # do not include this
                     found = True
                     break
 
             # do not include telemetry IPs that was found by the monitor path guessing
             tempIP = teleRep['ip']
             if tempIP != "":
-                if '[::ffff:' in tempIP: #ipv4
+                if '[::ffff:' in tempIP:  # ipv4
                     tempIP = re.search('ffff:(.*)\]:', tempIP).group(1)
 
                 for ip in monitorIPExistArray:
-                    if tempIP == ip: #do not include this
+                    if tempIP == ip:  # do not include this
                         found = True
                         break
 
             if not found:
-                #skip if the node is out of sync
+                # skip if the node is out of sync
                 if int(teleRep['block_count']) < minCount:
                     continue
 
@@ -1139,21 +1201,24 @@ async def getAPI():
                 # extract ip
                 if not aliasSet:
                     if teleRep['ip'] != "":
-                        if '[::ffff:' in teleRep['ip']: #ipv4
-                            ip = re.search('ffff:(.*)\]:', teleRep['ip']).group(1)
+                        if '[::ffff:' in teleRep['ip']:  # ipv4
+                            ip = re.search(
+                                'ffff:(.*)\]:', teleRep['ip']).group(1)
                             ip = ip.split('.')[0] + '.x.x.' + ip.split('.')[3]
-                        else: #ipv6
-                            ip = '[' + re.search('\[(.*)\]:', teleRep['ip']).group(1) +']'
+                        else:  # ipv6
+                            ip = '[' + re.search('\[(.*)\]:',
+                                                 teleRep['ip']).group(1) + ']'
                     else:
                         ip = ""
 
-                tempRep = {'name':ip, 'nanoNodeAccount':teleRep['account'],
-                'version':teleRep['vendor_version'], 'protocolVersion':teleRep['protocol_version'], 'storeVendor':'', 'currentBlock':teleRep['block_count'], 'cementedBlocks':teleRep['cemented_count'],
-                'unchecked':teleRep['unchecked_count'], 'numPeers':teleRep['peer_count'], 'confAve':-1, 'confMedian':-1, 'weight':teleRep['weight'], 'bps':teleRep['bps'], 'cps':teleRep['cps'],
-                'memory':-1, 'procTime':teleRep['req_time'], 'multiplier':-1, 'supported':True, 'PR':teleRep['PR'], 'isTelemetry':True, 'bandwidthCap':teleRep['bandwidth_cap'], 'tsu':teleRep['tsu']}
+                tempRep = {'name': ip, 'nanoNodeAccount': teleRep['account'],
+                           'version': teleRep['vendor_version'], 'protocolVersion': teleRep['protocol_version'], 'storeVendor': '', 'currentBlock': teleRep['block_count'], 'cementedBlocks': teleRep['cemented_count'],
+                           'unchecked': teleRep['unchecked_count'], 'numPeers': teleRep['peer_count'], 'confAve': -1, 'confMedian': -1, 'weight': teleRep['weight'], 'bps': teleRep['bps'], 'cps': teleRep['cps'],
+                           'memory': -1, 'procTime': teleRep['req_time'], 'multiplier': -1, 'supported': True, 'PR': teleRep['PR'], 'isTelemetry': True, 'bandwidthCap': teleRep['bandwidth_cap'], 'tsu': teleRep['tsu']}
                 telemetryReps.append(tempRep)
     except Exception as e:
-        log.warning(timeLog("Could not extract non matched telemetry reps. %r" %e))
+        log.warning(
+            timeLog("Could not extract non matched telemetry reps. %r" % e))
 
     blockCountMedian = 0
     cementedMedian = 0
@@ -1203,7 +1268,7 @@ async def getAPI():
     bwLimit90 = 0
     bwLimit99 = 0
 
-    #PR ONLY
+    # PR ONLY
     blockCountMedian_pr = 0
     cementedMedian_pr = 0
     uncheckedMedian_pr = 0
@@ -1262,7 +1327,8 @@ async def getAPI():
             else:
                 telemetryCount += 1
     except Exception as e:
-        log.warning(timeLog("Could not calculate number of telemetry peers. %r" %e))
+        log.warning(
+            timeLog("Could not calculate number of telemetry peers. %r" % e))
 
     # non pr is the total combined number
     telemetryCount = telemetryCount + telemetryCount_pr
@@ -1272,10 +1338,10 @@ async def getAPI():
             blockCountMedian = int(median(countData))
             blockCountMax = int(max(countData))
             blockCountMin = int(min(countData))
-            #Update the min allowed block count
+            # Update the min allowed block count
             minCount = int(blockCountMax/2)
 
-            #Calculate diff
+            # Calculate diff
             if (blockCountMax > 0):
                 diffMedian = blockCountMax - blockCountMedian
                 diffMax = blockCountMax - blockCountMin
@@ -1320,7 +1386,7 @@ async def getAPI():
         medianArray = []
         if len(bpsData) > 0:
             for data in bpsData:
-                medianArray.append(data[0]) # add the bps
+                medianArray.append(data[0])  # add the bps
                 # find the matching max block count and use that bps as max (even if it's technically not max). It's to avoid bootstrapping result
                 if (data[1] == blockCountMax):
                     BPSMax = data[0]
@@ -1331,7 +1397,7 @@ async def getAPI():
         medianArray = []
         if len(cpsData) > 0:
             for data in cpsData:
-                medianArray.append(data[0]) # add the bps
+                medianArray.append(data[0])  # add the bps
                 # find the matching max block count and use that cps as max (even if it's technically not max). It's to avoid bootstrapping result
                 if (data[1] == cementedMax):
                     CPSMax = data[0]
@@ -1354,13 +1420,13 @@ async def getAPI():
             bwLimit90 = int(percentile(medianArray, 90))
             bwLimit99 = int(percentile(medianArray, 99))
 
-        #PR ONLY
+        # PR ONLY
         if len(countData_pr) > 0:
             blockCountMedian_pr = int(median(countData_pr))
             blockCountMax_pr = int(max(countData_pr))
             blockCountMin_pr = int(min(countData_pr))
 
-            #Calculate diff
+            # Calculate diff
             if (blockCountMax_pr > 0):
                 diffMedian_pr = blockCountMax_pr - blockCountMedian_pr
                 diffMax_pr = blockCountMax_pr - blockCountMin_pr
@@ -1405,7 +1471,7 @@ async def getAPI():
         medianArray = []
         if len(bpsData_pr) > 0:
             for data in bpsData_pr:
-                medianArray.append(data[0]) # add the bps
+                medianArray.append(data[0])  # add the bps
                 # find the matching max block count and use that bps as max (even if it's technically not max). It's to avoid bootstrapping result
                 if (data[1] == blockCountMax_pr):
                     BPSMax_pr = data[0]
@@ -1416,7 +1482,7 @@ async def getAPI():
         medianArray = []
         if len(cpsData_pr) > 0:
             for data in cpsData_pr:
-                medianArray.append(data[0]) # add the bps
+                medianArray.append(data[0])  # add the bps
                 # find the matching max block count and use that bps as max (even if it's technically not max). It's to avoid bootstrapping result
                 if (data[1] == cementedMax_pr):
                     CPSMax_pr = data[0]
@@ -1439,133 +1505,136 @@ async def getAPI():
             bwLimit90_pr = int(percentile(medianArray, 90))
             bwLimit99_pr = int(percentile(medianArray, 99))
 
-        #Write output file
-        statData = {\
-            "blockCountMedian":int(blockCountMedian),\
-            "blockCountMax":int(blockCountMax),\
-            "blockCountMin":int(blockCountMin),\
-            "cementedMedian":int(cementedMedian),\
-            "cementedMax":int(cementedMax),\
-            "cementedMin":int(cementedMin),\
-            "uncheckedMedian":int(uncheckedMedian),\
-            "uncheckedMax":int(uncheckedMax),\
-            "uncheckedMin":int(uncheckedMin),\
-            "peersMedian":int(peersMedian),\
-            "peersMax":int(peersMax),\
-            "peersMin":int(peersMin),\
-            "diffMedian":float(diffMedian),\
-            "diffMax":float(diffMax),\
-            "memoryMedian":int(memoryMedian),\
-            "memoryMax":int(memoryMax),\
-            "memoryMin":int(memoryMin),\
-            "procTimeMedian":int(procTimeMedian),\
-            "procTimeMax":int(procTimeMax),\
-            "procTimeMin":int(procTimeMin),\
-            "multiplierMedian":float(multiplierMedian),\
-            "multiplierMax":float(multiplierMax),\
-            "multiplierMin":float(multiplierMin),\
-            "conf50Median":int(conf50Median),\
-            "conf75Median":int(conf75Median),\
-            "conf90Median":int(conf90Median),\
-            "conf99Median":int(conf99Median),\
-            "confAveMedian":int(confAveMedian),\
-            "confAveMin":int(confAveMin),\
-            "lenBlockCount":int(len(countData)),\
-            "lenCemented":int(len(cementedData)),\
-            "lenUnchecked":int(len(uncheckedData)),\
-            "lenPeers":int(len(peersData)),\
-            "lenConf50":int(len(conf50Data)),\
-            "lenMemory":int(len(memoryData)),\
-            "lenProcTime":int(len(procTimeData)),\
-            "lenMultiplier":int(len(multiplierData)),\
-            "monitorCount":monitorCount,\
-            "telemetryCount":telemetryCount,\
-            "BPSMax":BPSMax,\
-            "BPSMedian":BPSMedian,\
-            "BPSp75":BPSp75,\
-            "CPSMax":CPSMax,\
-            "CPSMedian":CPSMedian,\
-            "CPSp75":CPSp75,\
-            "bwLimit1":bwLimit1,\
-            "bwLimit10":bwLimit10,\
-            "bwLimit25":bwLimit25,\
-            "bwLimit50":bwLimit50,\
-            "bwLimit75":bwLimit75,\
-            "bwLimit90":bwLimit90,\
-            "bwLimit99":bwLimit99,\
-                            
-            #PR ONLY START
-            "blockCountMedian_pr":int(blockCountMedian_pr),\
-            "blockCountMax_pr":int(blockCountMax_pr),\
-            "blockCountMin_pr":int(blockCountMin_pr),\
-            "cementedMedian_pr":int(cementedMedian_pr),\
-            "cementedMax_pr":int(cementedMax_pr),\
-            "cementedMin_pr":int(cementedMin_pr),\
-            "uncheckedMedian_pr":int(uncheckedMedian_pr),\
-            "uncheckedMax_pr":int(uncheckedMax_pr),\
-            "uncheckedMin_pr":int(uncheckedMin_pr),\
-            "peersMedian_pr":int(peersMedian_pr),\
-            "peersMax_pr":int(peersMax_pr),\
-            "peersMin_pr":int(peersMin_pr),\
-            "diffMedian_pr":float(diffMedian_pr),\
-            "diffMax_pr":float(diffMax_pr),\
-            "memoryMedian_pr":int(memoryMedian_pr),\
-            "memoryMax_pr":int(memoryMax_pr),\
-            "memoryMin_pr":int(memoryMin_pr),\
-            "procTimeMedian_pr":int(procTimeMedian_pr),\
-            "procTimeMax_pr":int(procTimeMax_pr),\
-            "procTimeMin_pr":int(procTimeMin_pr),\
-            "multiplierMedian_pr":float(multiplierMedian_pr),\
-            "multiplierMax_pr":float(multiplierMax_pr),\
-            "multiplierMin_pr":float(multiplierMin_pr),\
-            "conf50Median_pr":int(conf50Median_pr),\
-            "conf75Median_pr":int(conf75Median_pr),\
-            "conf90Median_pr":int(conf90Median_pr),\
-            "conf99Median_pr":int(conf99Median_pr),\
-            "confAveMedian_pr":int(confAveMedian_pr),\
-            "confAveMin_pr":int(confAveMin_pr),\
-            "lenBlockCount_pr":int(len(countData_pr)),\
-            "lenCemented_pr":int(len(cementedData_pr)),\
-            "lenUnchecked_pr":int(len(uncheckedData_pr)),\
-            "lenPeers_pr":int(len(peersData_pr)),\
-            "lenConf50_pr":int(len(conf50Data_pr)),\
-            "lenMemory_pr":int(len(memoryData_pr)),\
-            "lenProcTime_pr":int(len(procTimeData_pr)),\
-            "lenMultiplier_pr":int(len(multiplierData_pr)),\
-            "monitorCount_pr":monitorCount_pr,\
-            "telemetryCount_pr":telemetryCount_pr,\
-            "BPSMax_pr":BPSMax_pr,\
-            "BPSMedian_pr":BPSMedian_pr,\
-            "BPSp75_pr":BPSp75_pr,\
-            "CPSMax_pr":CPSMax_pr,\
-            "CPSMedian_pr":CPSMedian_pr,\
-            "CPSp75_pr":CPSp75_pr,\
-            "bwLimit1_pr":bwLimit1_pr,\
-            "bwLimit10_pr":bwLimit10_pr,\
-            "bwLimit25_pr":bwLimit25_pr,\
-            "bwLimit50_pr":bwLimit50_pr,\
-            "bwLimit75_pr":bwLimit75_pr,\
-            "bwLimit90_pr":bwLimit90_pr,\
-            "bwLimit99_pr":bwLimit99_pr,\
-            #PR ONLY END
-            "pLatestVersionStat":pLatestVersionStat,\
-            "pTypesStat":pTypesStat,\
-            "pStakeTotalStat":pStakeTotalStat,\
-            "pStakeRequiredStat":pStakeRequiredStat,\
-            "pStakeLatestVersionStat":pStakeLatestVersionStat,\
-            "pStakeOnline":latestOnlineWeight,\
-            "lastUpdated":str(datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')),\
-            "lastUpdatedUnix":str(time.time()),\
-            "speedTest":str(round(medianNormal(speedtest_latest_ms))),\
-            }
+        # Write output file
+        statData = {
+            "blockCountMedian": int(blockCountMedian),
+            "blockCountMax": int(blockCountMax),
+            "blockCountMin": int(blockCountMin),
+            "cementedMedian": int(cementedMedian),
+            "cementedMax": int(cementedMax),
+            "cementedMin": int(cementedMin),
+            "uncheckedMedian": int(uncheckedMedian),
+            "uncheckedMax": int(uncheckedMax),
+            "uncheckedMin": int(uncheckedMin),
+            "peersMedian": int(peersMedian),
+            "peersMax": int(peersMax),
+            "peersMin": int(peersMin),
+            "diffMedian": float(diffMedian),
+            "diffMax": float(diffMax),
+            "memoryMedian": int(memoryMedian),
+            "memoryMax": int(memoryMax),
+            "memoryMin": int(memoryMin),
+            "procTimeMedian": int(procTimeMedian),
+            "procTimeMax": int(procTimeMax),
+            "procTimeMin": int(procTimeMin),
+            "multiplierMedian": float(multiplierMedian),
+            "multiplierMax": float(multiplierMax),
+            "multiplierMin": float(multiplierMin),
+            "conf50Median": int(conf50Median),
+            "conf75Median": int(conf75Median),
+            "conf90Median": int(conf90Median),
+            "conf99Median": int(conf99Median),
+            "confAveMedian": int(confAveMedian),
+            "confAveMin": int(confAveMin),
+            "lenBlockCount": int(len(countData)),
+            "lenCemented": int(len(cementedData)),
+            "lenUnchecked": int(len(uncheckedData)),
+            "lenPeers": int(len(peersData)),
+            "lenConf50": int(len(conf50Data)),
+            "lenMemory": int(len(memoryData)),
+            "lenProcTime": int(len(procTimeData)),
+            "lenMultiplier": int(len(multiplierData)),
+            "monitorCount": monitorCount,
+            "telemetryCount": telemetryCount,
+            "BPSMax": BPSMax,
+            "BPSMedian": BPSMedian,
+            "BPSp75": BPSp75,
+            "CPSMax": CPSMax,
+            "CPSMedian": CPSMedian,
+            "CPSp75": CPSp75,
+            "bwLimit1": bwLimit1,
+            "bwLimit10": bwLimit10,
+            "bwLimit25": bwLimit25,
+            "bwLimit50": bwLimit50,
+            "bwLimit75": bwLimit75,
+            "bwLimit90": bwLimit90,
+            "bwLimit99": bwLimit99,
 
-        #save to global vars used for pushing to blockchain later
-        latestGlobalBlocks.append({"time":time.time(), "data": statData['cementedMedian_pr']})
-        latestGlobalPeers.append({"time":time.time(), "data": statData['peersMedian_pr']})
-        latestGlobalDifficulty.append({"time":time.time(), "data": statData['multiplierMedian_pr']})
+            # PR ONLY START
+            "blockCountMedian_pr": int(blockCountMedian_pr), \
+            "blockCountMax_pr": int(blockCountMax_pr), \
+            "blockCountMin_pr": int(blockCountMin_pr), \
+            "cementedMedian_pr": int(cementedMedian_pr), \
+            "cementedMax_pr": int(cementedMax_pr), \
+            "cementedMin_pr": int(cementedMin_pr), \
+            "uncheckedMedian_pr": int(uncheckedMedian_pr), \
+            "uncheckedMax_pr": int(uncheckedMax_pr), \
+            "uncheckedMin_pr": int(uncheckedMin_pr), \
+            "peersMedian_pr": int(peersMedian_pr), \
+            "peersMax_pr": int(peersMax_pr), \
+            "peersMin_pr": int(peersMin_pr), \
+            "diffMedian_pr": float(diffMedian_pr), \
+            "diffMax_pr": float(diffMax_pr), \
+            "memoryMedian_pr": int(memoryMedian_pr), \
+            "memoryMax_pr": int(memoryMax_pr), \
+            "memoryMin_pr": int(memoryMin_pr), \
+            "procTimeMedian_pr": int(procTimeMedian_pr), \
+            "procTimeMax_pr": int(procTimeMax_pr), \
+            "procTimeMin_pr": int(procTimeMin_pr), \
+            "multiplierMedian_pr": float(multiplierMedian_pr), \
+            "multiplierMax_pr": float(multiplierMax_pr), \
+            "multiplierMin_pr": float(multiplierMin_pr), \
+            "conf50Median_pr": int(conf50Median_pr), \
+            "conf75Median_pr": int(conf75Median_pr), \
+            "conf90Median_pr": int(conf90Median_pr), \
+            "conf99Median_pr": int(conf99Median_pr), \
+            "confAveMedian_pr": int(confAveMedian_pr), \
+            "confAveMin_pr": int(confAveMin_pr), \
+            "lenBlockCount_pr": int(len(countData_pr)), \
+            "lenCemented_pr": int(len(cementedData_pr)), \
+            "lenUnchecked_pr": int(len(uncheckedData_pr)), \
+            "lenPeers_pr": int(len(peersData_pr)), \
+            "lenConf50_pr": int(len(conf50Data_pr)), \
+            "lenMemory_pr": int(len(memoryData_pr)), \
+            "lenProcTime_pr": int(len(procTimeData_pr)), \
+            "lenMultiplier_pr": int(len(multiplierData_pr)), \
+            "monitorCount_pr": monitorCount_pr, \
+            "telemetryCount_pr": telemetryCount_pr, \
+            "BPSMax_pr": BPSMax_pr, \
+            "BPSMedian_pr": BPSMedian_pr, \
+            "BPSp75_pr": BPSp75_pr, \
+            "CPSMax_pr": CPSMax_pr, \
+            "CPSMedian_pr": CPSMedian_pr, \
+            "CPSp75_pr": CPSp75_pr, \
+            "bwLimit1_pr": bwLimit1_pr, \
+            "bwLimit10_pr": bwLimit10_pr, \
+            "bwLimit25_pr": bwLimit25_pr, \
+            "bwLimit50_pr": bwLimit50_pr, \
+            "bwLimit75_pr": bwLimit75_pr, \
+            "bwLimit90_pr": bwLimit90_pr, \
+            "bwLimit99_pr": bwLimit99_pr, \
+            # PR ONLY END
+            "pLatestVersionStat": pLatestVersionStat, \
+            "pTypesStat": pTypesStat, \
+            "pStakeTotalStat": pStakeTotalStat, \
+            "pStakeRequiredStat": pStakeRequiredStat, \
+            "pStakeLatestVersionStat": pStakeLatestVersionStat, \
+            "pStakeOnline": latestOnlineWeight, \
+            "lastUpdated": str(datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')), \
+            "lastUpdatedUnix": str(time.time()), \
+            "speedTest": str(round(medianNormal(speedtest_latest_ms))), \
+        }
+
+        # save to global vars used for pushing to blockchain later
+        latestGlobalBlocks.append(
+            {"time": time.time(), "data": statData['cementedMedian_pr']})
+        latestGlobalPeers.append(
+            {"time": time.time(), "data": statData['peersMedian_pr']})
+        latestGlobalDifficulty.append(
+            {"time": time.time(), "data": statData['multiplierMedian_pr']})
 
     except Exception as e:
-        log.error(timeLog('Could not create stat data. Error: %r' %e))
+        log.error(timeLog('Could not create stat data. Error: %r' % e))
         pass
 
     try:
@@ -1574,19 +1643,20 @@ async def getAPI():
                 with open(statFile, 'w') as outfile:
                     outfile.write(simplejson.dumps(statData, indent=2))
             except Exception as e:
-                log.error(timeLog('Could not write stat data. Error: %r' %e))
+                log.error(timeLog('Could not write stat data. Error: %r' % e))
 
             try:
-                #combine monitor list with telemetry list
+                # combine monitor list with telemetry list
                 combinedList = supportedReps + telemetryReps
                 with open(monitorFile, 'w') as outfile:
                     outfile.write(simplejson.dumps(combinedList, indent=2))
             except Exception as e:
-                log.error(timeLog('Could not write monitor data. Error: %r' %e))
+                log.error(timeLog('Could not write monitor data. Error: %r' % e))
 
     except Exception as e:
-        log.error(timeLog('Could not write output data. Error: %r' %e))
+        log.error(timeLog('Could not write output data. Error: %r' % e))
         pass
+
 
 async def getPeers():
     global reps
@@ -1600,19 +1670,20 @@ async def getPeers():
     global monitorIPExistArray
 
     while 1:
-        startTime = time.time() #to measure the loop speed
+        startTime = time.time()  # to measure the loop speed
         pPeers = []
         pVersions = []
         pStakeTot = 0
         pStakeReq = 0
-        supply = requests.post(url=nodeUrl, json={"action": "available_supply"}, timeout=60).json()["available"]
+        supply = requests.post(url=nodeUrl, json={
+                               "action": "available_supply"}, timeout=60).json()["available"]
 
-        #log.info(timeLog("Verifying peers"))
+        # log.info(timeLog("Verifying peers"))
         monitorPaths = repsInit.copy()
-        monitorIPPaths = {'ip':{}}
-        monitorIPExistArray = {'ip':{}}
+        monitorIPPaths = {'ip': {}}
+        monitorIPExistArray = {'ip': {}}
 
-        #Grab connected peer IPs from the node
+        # Grab connected peer IPs from the node
         params = {
             "action": "peers",
             "peer_details": True,
@@ -1622,18 +1693,18 @@ async def getPeers():
             resp = await getRegularRPC(params)
             if 'peers' in resp[0]:
                 peers = resp[0]['peers']
-                for ipv6,value in peers.items():
+                for ipv6, value in peers.items():
                     if ipv6 == '':
                         continue
-                    if '[::ffff:' in ipv6: #ipv4
+                    if '[::ffff:' in ipv6:  # ipv4
                         ip = re.search('ffff:(.*)\]:', ipv6).group(1)
-                    else: #ipv6
-                        ip = '[' + re.search('\[(.*)\]:', ipv6).group(1) +']'
+                    else:  # ipv6
+                        ip = '[' + re.search('\[(.*)\]:', ipv6).group(1) + ']'
 
                     if ip != "":
-                        #Only try to find more monitors from peer IP in main network
+                        # Only try to find more monitors from peer IP in main network
                         if LIVE:
-                            #Combine with previous list and ignore duplicates
+                            # Combine with previous list and ignore duplicates
                             exists = False
                             for url in monitorPaths:
                                 path = 'http://'+ip
@@ -1674,16 +1745,17 @@ async def getPeers():
                                 monitorPaths.append(path)
                                 monitorIPPaths[ip] = path
 
-                        #Read protocol version and type
+                        # Read protocol version and type
                         pVersions.append(value['protocol_version'])
-                        pPeers.append({"ip":ipv6, "version":value["protocol_version"], "type":value["type"], "weight":0, "account": ""})
+                        pPeers.append(
+                            {"ip": ipv6, "version": value["protocol_version"], "type": value["type"], "weight": 0, "account": ""})
 
         except Exception as e:
-            log.warning(timeLog("Could not read peers from node RPC. %r" %e))
+            log.warning(timeLog("Could not read peers from node RPC. %r" % e))
             await peerSleep(startTime)
-            continue #break out of main loop and try again next iteration
+            continue  # break out of main loop and try again next iteration
 
-        #Grab voting weight stat
+        # Grab voting weight stat
         params = {
             "action": "confirmation_quorum",
             "peer_details": True,
@@ -1693,23 +1765,26 @@ async def getPeers():
             if 'peers_stake_total' in resp[0] and 'quorum_delta' in resp[0] and 'online_stake_total' in resp[0]:
                 pStakeTot = resp[0]['peers_stake_total']
                 pStakeReq = resp[0]['quorum_delta']
-                latestOnlineWeight = int(resp[0]['online_stake_total']) / int(1000000000000000000000000000000) #used for calculating PR status
+                latestOnlineWeight = int(resp[0]['online_stake_total']) / int(
+                    1000000000000000000000000000000)  # used for calculating PR status
 
-                #Find matching IP and include weight in original peer list
+                # Find matching IP and include weight in original peer list
                 for peer in resp[0]['peers']:
-                    for i,cPeer in enumerate(pPeers):
+                    for i, cPeer in enumerate(pPeers):
                         if peer['ip'] == cPeer['ip'] and peer['ip'] != '':
                             # append the relevant PR stats here as well
-                            weight = int(peer['weight']) / int(1000000000000000000000000000000)
+                            weight = int(peer['weight']) / \
+                                int(1000000000000000000000000000000)
 
-                            pPeers[i] = dict(cPeer, **{"weight": weight}) #update previous vaule
+                            # update previous vaule
+                            pPeers[i] = dict(cPeer, **{"weight": weight})
                             continue
 
         except Exception as e:
-            log.warning(timeLog("Could not read quorum from node RPC. %r" %e))
+            log.warning(timeLog("Could not read quorum from node RPC. %r" % e))
             pass
 
-        #Grab supply
+        # Grab supply
         params = {
             "action": "available_supply"
         }
@@ -1717,33 +1792,33 @@ async def getPeers():
             resp = await getRegularRPC(params)
             if 'available' in resp[0]:
                 tempSupply = resp[0]['available']
-                if int(tempSupply) > 0: #To ensure no devision by zero
+                if int(tempSupply) > 0:  # To ensure no devision by zero
                     supply = tempSupply
 
         except Exception as e:
-            log.warning(timeLog("Could not read supply from node RPC. %r" %e))
+            log.warning(timeLog("Could not read supply from node RPC. %r" % e))
             pass
 
-        #PERCENTAGE STATS
+        # PERCENTAGE STATS
         try:
             maxVersion = 0
             versionCounter = 0
             if len(pVersions) > 0:
                 maxVersion = int(max(pVersions))
-                #Calculate percentage of nodes on latest version
+                # Calculate percentage of nodes on latest version
                 versionCounter = 0
                 for version in pVersions:
                     if int(version) == maxVersion:
                         versionCounter += 1
 
-            #Require at least 5 monitors to be at latest version to use as base, or use second latest version
+            # Require at least 5 monitors to be at latest version to use as base, or use second latest version
             if versionCounter < 5 and len(pVersions) > 0:
-                #extract second largest number by first removing duplicates
+                # extract second largest number by first removing duplicates
                 simplified = list(set(pVersions))
                 simplified.sort()
-                if len(simplified) > 1 :
+                if len(simplified) > 1:
                     maxVersion = int(simplified[-2])
-                else : 
+                else:
                     maxVersion = int(simplified[0])
                 versionCounter = 0
                 for version in pVersions:
@@ -1758,20 +1833,24 @@ async def getPeers():
             pStakeTotalStat = int(pStakeTot) / int(supply) * 100
             pStakeRequiredStat = int(pStakeReq) / int(supply) * 100
 
-            #Calculate portion of weight and TCP in the latest versions
+            # Calculate portion of weight and TCP in the latest versions
             combinedWeightInLatest = 0
             combinedTotalWeight = 0
             TCPInLatestCounter = 0
             for peer in pPeers:
-                combinedTotalWeight = combinedTotalWeight + (int(peer['weight'])*int(1000000000000000000000000000000))
+                combinedTotalWeight = combinedTotalWeight + \
+                    (int(peer['weight'])*int(1000000000000000000000000000000))
                 if int(peer['version']) == int(maxVersion):
-                    combinedWeightInLatest = combinedWeightInLatest + (int(peer['weight'])*int(1000000000000000000000000000000))
+                    combinedWeightInLatest = combinedWeightInLatest + \
+                        (int(peer['weight']) *
+                         int(1000000000000000000000000000000))
 
                 if (peer['type'] == 'tcp'):
                     TCPInLatestCounter += 1
 
             if (int(pStakeTot) > 0):
-                pStakeLatestVersionStat = int(combinedWeightInLatest) / int(combinedTotalWeight) * 100
+                pStakeLatestVersionStat = int(
+                    combinedWeightInLatest) / int(combinedTotalWeight) * 100
 
             if len(pPeers) > 0:
                 pTypesStat = TCPInLatestCounter / int(len(pPeers)) * 100
@@ -1779,28 +1858,28 @@ async def getPeers():
                 pTypesStat = 0
 
         except Exception as e:
-            log.warning(timeLog("Could not calculate weight stat. %r" %e))
+            log.warning(timeLog("Could not calculate weight stat. %r" % e))
             pass
 
-        #Get monitors from Ninja API
+        # Get monitors from Ninja API
         try:
             if ninjaMonitors == "":
-                monitors = [{"monitor":{"sync":0,"url":"http://nl_genesis_monitor:80","version":"0","blocks":0},"account":""}]
+                monitors = [{"monitor": {
+                    "sync": 0, "url": "http://nl_genesis_monitor:80", "version": "0", "blocks": 0}, "account": ""}]
             else:
                 r = requests.get(ninjaMonitors, timeout=30)
                 monitors = r.json()
 
-            
             if len(monitors) > 0:
                 for monitor in monitors:
                     try:
                         url = monitor['monitor']['url']
-                        #Correct bad ending in some URLs like /api.php which will be added later
-                        url = url.replace('/api.php','')
-                        if url[-1] == '/': #ends with /
+                        # Correct bad ending in some URLs like /api.php which will be added later
+                        url = url.replace('/api.php', '')
+                        if url[-1] == '/':  # ends with /
                             url = url[:-1]
 
-                        #Ignore duplicates (IPs may still lead to same host name but that will be dealt with later)
+                        # Ignore duplicates (IPs may still lead to same host name but that will be dealt with later)
                         exists = False
                         for path in monitorPaths:
                             if path == url:
@@ -1813,7 +1892,7 @@ async def getPeers():
 
         except Exception as e:
             pass
-            #log.warning(timeLog("Could not read monitors from ninja. %r" %e))
+            # log.warning(timeLog("Could not read monitors from ninja. %r" %e))
 
         # Get aliases from URL
         if aliasUrl != '':
@@ -1823,16 +1902,16 @@ async def getPeers():
 
             except Exception as e:
                 pass
-                #log.warning(timeLog("Could not read aliases from ninja. %r" %e))
+                # log.warning(timeLog("Could not read aliases from ninja. %r" %e))
 
-        #Apply blacklist
-        for i,node in enumerate(monitorPaths):
+        # Apply blacklist
+        for i, node in enumerate(monitorPaths):
             for exl in blacklist:
                 if node == exl:
                     del monitorPaths[i]
                     break
 
-        #Verify all URLS
+        # Verify all URLS
         validPaths = []
         repAccounts = []
 
@@ -1842,9 +1921,11 @@ async def getPeers():
             for path in chunk:
                 if len(path) > 6:
                     if path[-4:] != '.htm':
-                        tasks.append(asyncio.ensure_future(verifyMonitor('%s/api.php' %path)))
+                        tasks.append(asyncio.ensure_future(
+                            verifyMonitor('%s/api.php' % path)))
                     else:
-                        tasks.append(asyncio.ensure_future(verifyMonitor(path)))
+                        tasks.append(asyncio.ensure_future(
+                            verifyMonitor(path)))
 
             try:
                 with async_timeout.timeout(monitorTimeout):
@@ -1852,13 +1933,13 @@ async def getPeers():
 
             except asyncio.TimeoutError as t:
                 pass
-                #log.warning(timeLog('Monitor Peer read timeout: %r' %t))
+                # log.warning(timeLog('Monitor Peer read timeout: %r' %t))
 
             for i, task in enumerate(tasks):
                 try:
                     if task.result() is not None and task.result():
-                        #Save valid peer urls
-                        #Check for duplicate account (IP same as hostname)
+                        # Save valid peer urls
+                        # Check for duplicate account (IP same as hostname)
                         exists = False
                         for account in repAccounts:
                             if task.result()[0] == account:
@@ -1869,7 +1950,8 @@ async def getPeers():
                             # Check if path exist among special IP paths
                             for key in monitorIPPaths:
                                 if monitorIPPaths[key] == task.result()[1]:
-                                    monitorIPExistArray[key] = {'account':task.result()[0]}
+                                    monitorIPExistArray[key] = {
+                                        'account': task.result()[0]}
                         repAccounts.append(task.result()[0])
 
                 except Exception as e:
@@ -1879,11 +1961,12 @@ async def getPeers():
                     if task.done() and not task.cancelled():
                         task.exception()  # this doesn't raise anything, just mark exception retrieved
 
-        #Update the final list
+        # Update the final list
         reps = validPaths.copy()
-        #log.info(reps)
+        # log.info(reps)
 
         await peerSleep(startTime)
+
 
 async def publishStatBlock(source_account, priv_key, dest_account, rep_account, stringVal):
     # get info from sending account
@@ -1909,7 +1992,7 @@ async def publishStatBlock(source_account, priv_key, dest_account, rep_account, 
             return False
 
     except Exception as e:
-        log.warning(timeLog("Could not get block info. %r" %e))
+        log.warning(timeLog("Could not get block info. %r" % e))
         return False
 
     # create send block
@@ -1930,11 +2013,11 @@ async def publishStatBlock(source_account, priv_key, dest_account, rep_account, 
         block = resp.json()['block']
         hash = resp.json()['hash']
         if len(hash) != 64:
-            log.warning(timeLog("Could not create block. %r" %e))
+            log.warning(timeLog("Could not create block. %r" % e))
             return False
 
     except Exception as e:
-        log.warning(timeLog("Could not create block. %r" %e))
+        log.warning(timeLog("Could not create block. %r" % e))
         return False
 
     # send the transactions
@@ -1947,15 +2030,17 @@ async def publishStatBlock(source_account, priv_key, dest_account, rep_account, 
         resp = requests.post(url=nodeUrl, json=params, timeout=60)
         hash = resp.json()['hash']
         if len(hash) != 64:
-            log.warning(timeLog("Could not send block. %r" %e))
+            log.warning(timeLog("Could not send block. %r" % e))
 
     except Exception as e:
-        log.warning(timeLog("Could not send block. %r" %e))
+        log.warning(timeLog("Could not send block. %r" % e))
         return False
 
     return hash
 
 # publish speed test (change block)
+
+
 async def publishSpeedTest(source_account, priv_key, rep_account):
     # get info from sending account
     params = {
@@ -1981,7 +2066,7 @@ async def publishSpeedTest(source_account, priv_key, rep_account):
             return False
 
     except Exception as e:
-        log.error(timeLog("Could not get block info. %r" %e))
+        log.error(timeLog("Could not get block info. %r" % e))
         return False
 
     work_params = {
@@ -1993,7 +2078,7 @@ async def publishSpeedTest(source_account, priv_key, rep_account):
 
     work = ''
     try:
-        #print("Creating work")
+        # print("Creating work")
         resp = requests.post(url=workUrl, json=work_params, timeout=60)
         work = resp.json()['work']
         if len(work) != 16:
@@ -2001,7 +2086,7 @@ async def publishSpeedTest(source_account, priv_key, rep_account):
             return False
 
     except Exception as e:
-        log.error(timeLog("Could not create work. %r" %e))
+        log.error(timeLog("Could not create work. %r" % e))
         return False
 
     # create send block
@@ -2023,11 +2108,11 @@ async def publishSpeedTest(source_account, priv_key, rep_account):
         block = resp.json()['block']
         hash = resp.json()['hash']
         if len(hash) != 64:
-            log.error(timeLog("Could not create block. %r" %e))
+            log.error(timeLog("Could not create block. %r" % e))
             return False
 
     except Exception as e:
-        log.error(timeLog("Could not create block. %r" %e))
+        log.error(timeLog("Could not create block. %r" % e))
         log.error(resp)
         return False
 
@@ -2041,13 +2126,14 @@ async def publishSpeedTest(source_account, priv_key, rep_account):
         resp = requests.post(url=nodeUrl, json=params, timeout=60)
         hash = resp.json()['hash']
         if len(hash) != 64:
-            log.error(timeLog("Could not send block. %r" %e))
+            log.error(timeLog("Could not send block. %r" % e))
 
     except Exception as e:
-        log.error(timeLog("Could not send block. %r" %e))
+        log.error(timeLog("Could not send block. %r" % e))
         return False
 
     return hash
+
 
 async def speedTest():
     global speedtest_latest
@@ -2058,7 +2144,8 @@ async def speedTest():
         try:
             response = await publishSpeedTest(source_account, priv_key, speedtest_rep)
             if response and len(response) == 64:
-                speedtest_latest.append({'hash': response, 'time': int(time.time() * 1000) })
+                speedtest_latest.append(
+                    {'hash': response, 'time': int(time.time() * 1000)})
                 # Only save historic hashes for 10 x speedTestInterval sec
                 if len(speedtest_latest) > historyLength:
                     speedtest_latest.pop(0)
@@ -2068,17 +2155,20 @@ async def speedTest():
 
             # Check if the last websocket response was too long ago, add 0 to the buffer to indicate timeout
             if time.time() - speedtest_last_valid > float(historyLength * runSpeedTestEvery):
-                log.info(timeLog("Speedtest not performed in " + str(time.time() - speedtest_last_valid) + " sec"))
+                log.info(timeLog("Speedtest not performed in " +
+                         str(time.time() - speedtest_last_valid) + " sec"))
                 speedtest_latest_ms.append(0)
                 if len(speedtest_latest_ms) > 5:
                     speedtest_latest_ms.pop(0)
 
             await asyncio.sleep(runSpeedTestEvery)
         except Exception as e:
-            log.error(timeLog("Could not speed test. %r" %e))
+            log.error(timeLog("Could not speed test. %r" % e))
             await asyncio.sleep(runSpeedTestEvery)
 
 # websocket listener for speed test
+
+
 async def speedTestWebsocket():
     global speedtest_latest
     global speedtest_latest_ms
@@ -2089,7 +2179,7 @@ async def speedTestWebsocket():
         "action": "subscribe",
         "topic": "confirmation",
         "options": {
-          "accounts": [source_account]
+            "accounts": [source_account]
         }
     }
     try:
@@ -2101,20 +2191,22 @@ async def speedTestWebsocket():
                 duration = 0
                 if 'message' in rec:
                     try:
-                        for i,test in enumerate(speedtest_latest):
+                        for i, test in enumerate(speedtest_latest):
                             if test['hash'] == rec['message']['hash']:
-                                speedtest_latest[i]['hash'] = '' # reset so the other websocket doesn't record
-                                duration = int(time.time() * 1000) - test['time'] - speedtest_websocket_ping_offset_1
+                                # reset so the other websocket doesn't record
+                                speedtest_latest[i]['hash'] = ''
+                                duration = int(
+                                    time.time() * 1000) - test['time'] - speedtest_websocket_ping_offset_1
                                 speedtest_last_valid = time.time()
                                 speedtest_latest_ms.append(duration)
                                 if len(speedtest_latest_ms) > 5:
                                     speedtest_latest_ms.pop(0)
                                 break
                         log.info(timeLog("Speedtest1: " + str(duration)))
-                        
 
                     except Exception as e:
-                        log.error(timeLog("Failed with speed test websocket. %r" %e))
+                        log.error(
+                            timeLog("Failed with speed test websocket. %r" % e))
 
     except Exception as e:
         log.error(timeLog("Websocket connection error"))
@@ -2123,6 +2215,8 @@ async def speedTestWebsocket():
         await speedTestWebsocket()
 
 # websocket listener for speed test backup
+
+
 async def speedTestWebsocketBackup():
     global speedtest_latest
     global speedtest_latest_ms
@@ -2133,7 +2227,7 @@ async def speedTestWebsocketBackup():
         "action": "subscribe",
         "topic": "confirmation",
         "options": {
-          "accounts": [source_account]
+            "accounts": [source_account]
         }
     }
     try:
@@ -2145,20 +2239,22 @@ async def speedTestWebsocketBackup():
                 duration = 0
                 if 'message' in rec:
                     try:
-                        for i,test in enumerate(speedtest_latest):
+                        for i, test in enumerate(speedtest_latest):
                             if test['hash'] == rec['message']['hash']:
-                                speedtest_latest[i]['hash'] = '' # reset so the other websocket doesn't record
-                                duration = int(time.time() * 1000) - test['time'] - speedtest_websocket_ping_offset_2
+                                # reset so the other websocket doesn't record
+                                speedtest_latest[i]['hash'] = ''
+                                duration = int(
+                                    time.time() * 1000) - test['time'] - speedtest_websocket_ping_offset_2
                                 speedtest_last_valid = time.time()
                                 speedtest_latest_ms.append(duration)
                                 if len(speedtest_latest_ms) > 5:
                                     speedtest_latest_ms.pop(0)
                                 break
                         log.info(timeLog("Speedtest2: " + str(duration)))
-                        
 
                     except Exception as e:
-                        log.error(timeLog("Failed with speed test websocket. %r" %e))
+                        log.error(
+                            timeLog("Failed with speed test websocket. %r" % e))
 
     except Exception as e:
         log.error(timeLog("Websocket connection error"))
@@ -2166,7 +2262,9 @@ async def speedTestWebsocketBackup():
         await asyncio.sleep(5)
         await speedTestWebsocketBackup()
 
-#Websocket subscription for telemetry
+# Websocket subscription for telemetry
+
+
 async def websocketLoop():
     global previousMaxBlockCount
     global previousMaxConfirmed
@@ -2222,13 +2320,14 @@ async def websocketLoop():
                         if 'block_count' in metric:
                             block_count_tele = int(metric['block_count'])
                         else:
-                            continue # failed, do next message
+                            continue  # failed, do next message
                         if 'timestamp' in metric:
                             timeStamp_tele = int(metric['timestamp'])
                         if 'cemented_count' in metric:
                             cemented_count_tele = int(metric['cemented_count'])
                         if 'unchecked_count' in metric:
-                            unchecked_count_tele = int(metric['unchecked_count'])
+                            unchecked_count_tele = int(
+                                metric['unchecked_count'])
                         if 'account_count' in metric:
                             account_count_tele = int(metric['account_count'])
                         if 'bandwidth_cap' in metric:
@@ -2236,7 +2335,8 @@ async def websocketLoop():
                         if 'peer_count' in metric:
                             peer_count_tele = int(metric['peer_count'])
                         if 'protocol_version' in metric:
-                            protocol_version_number_tele = int(metric['protocol_version'])
+                            protocol_version_number_tele = int(
+                                metric['protocol_version'])
                         if 'major_version' in metric:
                             major_version_tele = metric['major_version']
                         if 'minor_version' in metric:
@@ -2266,7 +2366,8 @@ async def websocketLoop():
 
                             if not found:
                                 # prepare first history data
-                                log.info(timeLog("Preparing history for: " + address_tele + ':' + port_tele))
+                                log.info(
+                                    timeLog("Preparing history for: " + address_tele + ':' + port_tele))
 
                                 timeD = deque([0]*checkCPSEvery)
                                 blockD = deque([0]*checkCPSEvery)
@@ -2279,26 +2380,31 @@ async def websocketLoop():
                                 cementD.append(cemented_count_tele)
                                 cementD.popleft()
                                 indiPeersPrev[address_tele + ':' + port_tele] = {'timestamp': timeD, 'blockCount': blockD, 'cementCount': cementD,
-                                'unchecked_count': unchecked_count_tele, 'peer_count':peer_count_tele, 'protocol_version':protocol_version_number_tele,
-                                'account_count':account_count_tele, 'bandwidth_cap':bandwidth_cap_tele, 'uptime':uptime_tele,
-                                'major_version':major_version_tele, 'minor_version':minor_version_tele, 'patch_version':patch_version_tele, 'pre_release_version':pre_release_version_tele,
-                                'address':address_tele, 'port':port_tele, 'timestamp_local': time.time()}
+                                                                                 'unchecked_count': unchecked_count_tele, 'peer_count': peer_count_tele, 'protocol_version': protocol_version_number_tele,
+                                                                                 'account_count': account_count_tele, 'bandwidth_cap': bandwidth_cap_tele, 'uptime': uptime_tele,
+                                                                                 'major_version': major_version_tele, 'minor_version': minor_version_tele, 'patch_version': patch_version_tele, 'pre_release_version': pre_release_version_tele,
+                                                                                 'address': address_tele, 'port': port_tele, 'timestamp_local': time.time()}
 
                             # peer exist in the history, now we can calculate BPS and CPS
                             else:
-                                previousMax = indiPeersPrev[address_tele + ':' + port_tele]['blockCount']
-                                previousCemented = indiPeersPrev[address_tele + ':' + port_tele]['cementCount']
-                                previousTimeStamp = indiPeersPrev[address_tele + ':' + port_tele]['timestamp']
+                                previousMax = indiPeersPrev[address_tele +
+                                                            ':' + port_tele]['blockCount']
+                                previousCemented = indiPeersPrev[address_tele +
+                                                                 ':' + port_tele]['cementCount']
+                                previousTimeStamp = indiPeersPrev[address_tele +
+                                                                  ':' + port_tele]['timestamp']
 
                                 # skip updating if the timestamp has not changed, ie. the telemetry data has not changed
                                 if timeStamp_tele == previousTimeStamp[0]:
                                     continue
 
                                 if block_count_tele > 0 and previousMax[0] > 0 and (timeStamp_tele - previousTimeStamp[0]) > 0 and previousTimeStamp[0] > 0:
-                                    BPSPeer = (block_count_tele - previousMax[0]) / (timeStamp_tele - previousTimeStamp[0])
+                                    BPSPeer = (
+                                        block_count_tele - previousMax[0]) / (timeStamp_tele - previousTimeStamp[0])
 
                                 if cemented_count_tele > 0 and previousCemented[0] > 0 and (timeStamp_tele - previousTimeStamp[0]) > 0 and previousTimeStamp[0] > 0:
-                                    CPSPeer = (cemented_count_tele - previousCemented[0]) / (timeStamp_tele - previousTimeStamp[0])
+                                    CPSPeer = (
+                                        cemented_count_tele - previousCemented[0]) / (timeStamp_tele - previousTimeStamp[0])
 
                                 timeD = indiPeersPrev[ip]['timestamp']
                                 timeD.append(timeStamp_tele)
@@ -2318,10 +2424,10 @@ async def websocketLoop():
                                     CPSPeer = CPSPeer * 1000
 
                                 indiPeersPrev[ip] = {'timestamp': timeD, 'blockCount': blockD, 'cementCount': cementD,
-                                'unchecked_count': unchecked_count_tele, 'peer_count':peer_count_tele, 'protocol_version':protocol_version_number_tele,
-                                'account_count':account_count_tele, 'bandwidth_cap':bandwidth_cap_tele, 'uptime':uptime_tele,
-                                'major_version':major_version_tele, 'minor_version':minor_version_tele, 'patch_version':patch_version_tele, 'pre_release_version':pre_release_version_tele,
-                                'address':address_tele, 'port':port_tele, 'bps':BPSPeer, 'cps':CPSPeer, 'timestamp_local': time.time()}
+                                                     'unchecked_count': unchecked_count_tele, 'peer_count': peer_count_tele, 'protocol_version': protocol_version_number_tele,
+                                                     'account_count': account_count_tele, 'bandwidth_cap': bandwidth_cap_tele, 'uptime': uptime_tele,
+                                                     'major_version': major_version_tele, 'minor_version': minor_version_tele, 'patch_version': patch_version_tele, 'pre_release_version': pre_release_version_tele,
+                                                     'address': address_tele, 'port': port_tele, 'bps': BPSPeer, 'cps': CPSPeer, 'timestamp_local': time.time()}
 
                                 # call the rest of the API calls
                                 websocketCountDownTimer = time.time()
@@ -2329,31 +2435,35 @@ async def websocketLoop():
                                 startTime = time.time()
 
     except websockets.ConnectionClosed as e:
-        log.warning(timeLog("Websocket connection to %s was closed" %websocketAddress))
+        log.warning(timeLog("Websocket connection to %s was closed" %
+                    websocketAddress))
         await asyncio.sleep(10)
-        log.info(timeLog("Reconnecting to %s" %websocketAddress))
+        log.info(timeLog("Reconnecting to %s" % websocketAddress))
         # try reconnect
         await websocketLoop()
 
     except Exception as e:
-        log.warning(timeLog("Failed to process websocket telemetry. %r. Websocket reconnection attempt in 60sec" %e))
+        log.warning(timeLog(
+            "Failed to process websocket telemetry. %r. Websocket reconnection attempt in 60sec" % e))
         await asyncio.sleep(60)
         # try reconnect
         await websocketLoop()
 
-#Push hourly averages to the blockchain
+# Push hourly averages to the blockchain
+
+
 async def pushStats():
     global latestRunStatTime
     global latestGlobalBlocks
     global latestGlobalPeers
     global latestGlobalDifficulty
 
-    latestRunStatTime = time.time() - runStatEvery # init
+    latestRunStatTime = time.time() - runStatEvery  # init
     startTime = time.time()
 
     while 1:
         await statSleep(startTime)
-        startTime = time.time() #to measure the loop speed
+        startTime = time.time()  # to measure the loop speed
         prev = None
         adjustedbal = None
         block = None
@@ -2373,13 +2483,14 @@ async def pushStats():
                 latestGlobalBlocks = blocks.copy()
                 # calculate average cph (confirms per hour) (if positive)
                 if (blocks[-1]['time'] - blocks[0]['time'] > 0):
-                    cphAve = (blocks[-1]['data'] - blocks[0]['data']) / (blocks[-1]['time'] - blocks[0]['time']) * 3600
+                    cphAve = (blocks[-1]['data'] - blocks[0]['data']) / \
+                        (blocks[-1]['time'] - blocks[0]['time']) * 3600
                 else:
                     continue
             else:
                 continue
         except Exception as e:
-            log.warning(timeLog("Failed to block stat. %r" %e))
+            log.warning(timeLog("Failed to block stat. %r" % e))
             continue
 
         try:
@@ -2401,7 +2512,7 @@ async def pushStats():
             else:
                 continue
         except Exception as e:
-            log.warning(timeLog("Failed to peer stat. %r" %e))
+            log.warning(timeLog("Failed to peer stat. %r" % e))
             continue
 
         try:
@@ -2424,7 +2535,7 @@ async def pushStats():
                 continue
 
         except Exception as e:
-            log.warning(timeLog("Failed to diff stat. %r" %e))
+            log.warning(timeLog("Failed to diff stat. %r" % e))
             continue
 
         try:
@@ -2435,7 +2546,7 @@ async def pushStats():
             diffStringVal = int(timeNow + str(round(diffAve)))
 
         except Exception as e:
-            log.warning(timeLog("Failed to prepare stat push. %r" %e))
+            log.warning(timeLog("Failed to prepare stat push. %r" % e))
             continue
 
         try:
@@ -2453,26 +2564,28 @@ async def pushStats():
                 log.info(timeLog(hashDiff))
 
         except Exception as e:
-            log.warning(timeLog("Failed to stat push. %r" %e))
+            log.warning(timeLog("Failed to stat push. %r" % e))
             continue
 
 loop = asyncio.get_event_loop()
-#PYTHON >3.7
-ignore_aiohttp_ssl_error(loop) #ignore python bug
+# PYTHON >3.7
+ignore_aiohttp_ssl_error(loop)  # ignore python bug
 
 if BETA or DEV:
     futures = [getPeers(), websocketLoop(), websocketCountDown()]
 else:
     if speedtest_websocket_2 != '':
-        futures = [getPeers(), websocketLoop(), websocketCountDown(), speedTest(), speedTestWebsocket(), speedTestWebsocketBackup()]
+        futures = [getPeers(), websocketLoop(), websocketCountDown(
+        ), speedTest(), speedTestWebsocket(), speedTestWebsocketBackup()]
     else:
-        futures = [getPeers(), websocketLoop(), websocketCountDown(), speedTest(), speedTestWebsocket()]
-#futures = [getAPI()]
-#futures = [getPeers()]
+        futures = [getPeers(), websocketLoop(), websocketCountDown(),
+                   speedTest(), speedTestWebsocket()]
+# futures = [getAPI()]
+# futures = [getPeers()]
 log.info(timeLog("Starting script"))
 
 try:
     loop.run_until_complete(asyncio.wait(futures))
-    #asyncio.run(getPeers(), debug=True)
+    # asyncio.run(getPeers(), debug=True)
 except KeyboardInterrupt:
     pass

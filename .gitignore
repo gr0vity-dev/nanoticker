@@ -1,3 +1,4 @@
 /script/repstat.log
 *__pycache__*
 /script/json-cache/node_modules/*
+venv_nanoticker

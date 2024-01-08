@@ -1,6 +1,6 @@
 from src.config import Config
 from src.rpc_requests import RpcWrapper
-from src.helper import timeLog, median, chunks, percentile, medianNormal
+from src.helper import time_log, median, chunks, percentile, medianNormal
 import datetime
 import time
 import asyncio
@@ -134,7 +134,7 @@ class ApiHandler:
                             PRStatus = False
                 except Exception as e:
                     self.log.warning(
-                        timeLog("Could not read local weight from node RPC. %r" % e))
+                        time_log("Could not read local weight from node RPC. %r" % e))
                     pass
 
                 teleTemp = {"ip": '', "protocol_version": protocol_version_number_tele, "type": "", "weight": weight, "account": self.config.localTelemetryAccount,
@@ -147,7 +147,7 @@ class ApiHandler:
 
         except Exception as e:
             self.log.warning(
-                timeLog("Could not read local telemetry from node RPC. %r" % e))
+                time_log("Could not read local telemetry from node RPC. %r" % e))
             pass
 
         # GET TELEMETRY DATA FROM PEERS
@@ -195,7 +195,7 @@ class ApiHandler:
                     if time.time() > timestamp_local_tele + self.config.websocketPeerDropLimit:
                         del self.config.indiPeersPrev[key]
                         self.log.info(
-                            timeLog("Dropping peer telemetry data due to inactivity: " + key))
+                            time_log("Dropping peer telemetry data due to inactivity: " + key))
                         continue
 
                 if 'blockCount' in metric:
@@ -269,7 +269,7 @@ class ApiHandler:
 
         except Exception as e:
             self.log.warning(
-                timeLog("Could not read raw telemetry from node RPC. %r" % e))
+                time_log("Could not read raw telemetry from node RPC. %r" % e))
             pass
 
         # GET WEIGHT FROM CONFIRMATION QUORUM
@@ -314,7 +314,7 @@ class ApiHandler:
 
         except Exception as e:
             self.log.warning(
-                timeLog("Could not read quorum from node RPC. %r" % e))
+                time_log("Could not read quorum from node RPC. %r" % e))
             pass
 
         # Append the BPS CPS data
@@ -354,11 +354,11 @@ class ApiHandler:
 
         except Exception as e:
             self.log.warning(
-                timeLog("Could not append BPS and CPS data. %r" % e))
+                time_log("Could not append BPS and CPS data. %r" % e))
             pass
 
         # GET MONITOR DATA
-        # self.log.info(timeLog("Get API"))
+        # self.log.info(time_log("Get API"))
         jsonData = []
         """Split URLS in max X concurrent requests"""
         for chunk in chunks(self.config.reps, self.config.maxURLRequests):
@@ -377,10 +377,10 @@ class ApiHandler:
                     await asyncio.gather(*tasks)
 
             except asyncio.TimeoutError as t:
-                # self.log.warning(timeLog('Monitor API read timeout: %r' %t))
+                # self.log.warning(time_log('Monitor API read timeout: %r' %t))
                 pass
             except Exception as e:
-                self.log.warning(timeLog(e))
+                self.log.warning(time_log(e))
 
             for i, task in enumerate(tasks):
                 try:
@@ -388,15 +388,15 @@ class ApiHandler:
                         if (task.result()[1]):
                             jsonData.append(
                                 [task.result()[0], task.result()[3]])
-                            # self.log.info(timeLog('Valid: ' + task.result()[0]['nanoNodeName']))
+                            # self.log.info(time_log('Valid: ' + task.result()[0]['nanoNodeName']))
                         else:
-                            self.log.warning(timeLog('Could not read json from %s. Result: %s' % (
+                            self.log.warning(time_log('Could not read json from %s. Result: %s' % (
                                 task.result()[2], task.result()[4])))
 
                 except Exception as e:
                     # for example when tasks timeout
                     self.log.warning(
-                        timeLog('Could not read response. Error: %r' % e))
+                        time_log('Could not read response. Error: %r' % e))
                     pass
 
                 finally:
@@ -435,7 +435,7 @@ class ApiHandler:
 
         try:
             if jsonData is None or type(jsonData[0][0]) == bool:
-                # self.log.info(timeLog('type error'))
+                # self.log.info(time_log('type error'))
                 return
 
         except:
@@ -466,7 +466,8 @@ class ApiHandler:
                 try:
                     currency = j['currency']
                     if currency != self.config.activeCurrency:
-                        self.log.info(timeLog('Bad currency setting: ' + name))
+                        self.log.info(
+                            time_log('Bad currency setting: ' + name))
                         continue
                 except Exception as e:
                     pass
@@ -638,7 +639,7 @@ class ApiHandler:
 
                 except Exception as e:
                     self.log.warning(
-                        timeLog("Could not match ip and replace weight and telemetry data. %r" % e))
+                        time_log("Could not match ip and replace weight and telemetry data. %r" % e))
                     pass
 
                 # skip if the node is out of sync
@@ -704,11 +705,11 @@ class ApiHandler:
 
                 except Exception as e:
                     self.log.warning(
-                        timeLog("Could not append supported rep. %r" % e))
+                        time_log("Could not append supported rep. %r" % e))
                     pass
 
             else:
-                self.log.warning(timeLog("Empty json from API calls"))
+                self.log.warning(time_log("Empty json from API calls"))
 
         # all telemetry peers that was not matched already
         try:
@@ -787,7 +788,7 @@ class ApiHandler:
                     telemetryReps.append(tempRep)
         except Exception as e:
             self.log.warning(
-                timeLog("Could not extract non matched telemetry reps. %r" % e))
+                time_log("Could not extract non matched telemetry reps. %r" % e))
 
         blockCountMedian = 0
         cementedMedian = 0
@@ -897,7 +898,7 @@ class ApiHandler:
                     telemetryCount += 1
         except Exception as e:
             self.log.warning(
-                timeLog("Could not calculate number of telemetry peers. %r" % e))
+                time_log("Could not calculate number of telemetry peers. %r" % e))
 
         # non pr is the total combined number
         telemetryCount = telemetryCount + telemetryCount_pr
@@ -1192,7 +1193,7 @@ class ApiHandler:
                 "pStakeOnline": self.config.latestOnlineWeight, \
                 "lastUpdated": str(datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')), \
                 "lastUpdatedUnix": str(time.time()), \
-                "speedTest": str(round(medianNormal(self.config.speedtest_latest_ms))), \
+                "speedTest": "-1", \
             }
 
             # save to global vars used for pushing to blockchain later
@@ -1205,7 +1206,7 @@ class ApiHandler:
 
         except Exception as e:
             self.log.error(
-                timeLog('Could not create stat data. Error: %r' % e))
+                time_log('Could not create stat data. Error: %r' % e))
             pass
 
         try:
@@ -1215,7 +1216,7 @@ class ApiHandler:
                         outfile.write(json.dumps(statData, indent=2))
                 except Exception as e:
                     self.log.error(
-                        timeLog('Could not write stat data. Error: %r' % e))
+                        time_log('Could not write stat data. Error: %r' % e))
 
                 try:
                     # combine monitor list with telemetry list
@@ -1224,9 +1225,9 @@ class ApiHandler:
                         outfile.write(json.dumps(combinedList, indent=2))
                 except Exception as e:
                     self.log.error(
-                        timeLog('Could not write monitor data. Error: %r' % e))
+                        time_log('Could not write monitor data. Error: %r' % e))
 
         except Exception as e:
             self.log.error(
-                timeLog('Could not write output data. Error: %r' % e))
+                time_log('Could not write output data. Error: %r' % e))
             pass

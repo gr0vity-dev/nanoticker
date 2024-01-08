@@ -1,9 +1,14 @@
 import datetime
 import math
+import time
 
 
-def timeLog(msg):
-    return str(datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')) + ": " + msg
+# def timeLog(msg):
+#     return str(datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')) + ": " + msg
+
+
+def time_log(message):
+    return f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {message}"
 
 
 def chunks(l, n):
@@ -53,7 +58,7 @@ def median(lst, log):
             else:
                 return (sortedLst[index] + sortedLst[index + 1])/2.0
     except Exception as e:
-        log.warning(timeLog("Could not calculate median value. %r" % e))
+        log.warning(time_log("Could not calculate median value. %r" % e))
 
 
 def medianNormal(lst):

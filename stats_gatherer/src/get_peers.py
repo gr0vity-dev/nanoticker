@@ -1,17 +1,82 @@
 
 from src.rpc_requests import RpcWrapper
 from src.config import Config
-from src.helper import timeLog, chunks
+from src.helper import time_log
 import time
 import re
 import asyncio
 
 
-async def peerSleep(startTime, runPeersEvery):
-    sleep = runPeersEvery - (time.time() - startTime)
-    if sleep < 0:
-        sleep = 0
-    await asyncio.sleep(sleep)
+async def peer_sleep(start_time, interval):
+    end_time = time.time()
+    await asyncio.sleep(max(0, interval - (end_time - start_time)))
+
+
+async def get_peer_ip(ipv6):
+    if '[::ffff:' in ipv6:  # ipv4
+        return re.search('ffff:(.*)\]:', ipv6).group(1)
+    else:  # ipv6
+        return '[' + re.search('\[(.*)\]:', ipv6).group(1) + ']'
+
+
+async def get_peers_from_node_rpc(rpc_wrapper: RpcWrapper, config: Config, monitor_paths, p_versions, p_peers):
+    params = {"action": "peers", "peer_details": True}
+    try:
+        resp = await rpc_wrapper.get_regular_rpc(params)
+        if 'peers' in resp[0]:
+            await process_peers(resp[0]['peers'], config, monitor_paths, p_versions, p_peers)
+    except Exception as e:
+        config.log.warning(await time_log(f"Could not read peers from node RPC. {e}"))
+        return False
+    return True
+
+
+async def process_peers(peers, config: Config, monitor_paths, p_versions, p_peers):
+    for ipv6, value in peers.items():
+        if ipv6 == '':
+            continue
+        ip = await get_peer_ip(ipv6)
+        if ip != "":
+            # Only try to find more monitors from peer IP in main network
+            if config.additional_monitors:
+                await update_monitor_paths(ip, monitor_paths)
+            p_versions.append(value['protocol_version'])
+            p_peers.append(
+                {"ip": ipv6, "version": value["protocol_version"], "type": value["type"], "weight": 0, "account": ""})
+
+
+async def update_monitor_paths(ip, monitor_paths):
+    base_path = 'http://' + ip
+    suffixes = ['', '/nano', '/nanoNodeMonitor', '/monitor']
+    for suffix in suffixes:
+        path = base_path + suffix
+        if path not in monitor_paths:
+            monitor_paths.append(path)
+
+
+async def get_voting_weight_stat(rpc_wrapper: RpcWrapper, config: Config, p_peers):
+    p_stake_tot = 0
+    p_stake_req = 0
+    params = {"action": "confirmation_quorum", "peer_details": True}
+    try:
+        resp = await rpc_wrapper.get_regular_rpc(params)
+        if 'peers_stake_total' in resp[0] and 'quorum_delta' in resp[0] and 'online_stake_total' in resp[0]:
+            p_stake_tot = resp[0]['peers_stake_total']
+            p_stake_req = resp[0]['quorum_delta']
+            config.latestOnlineWeight = int(
+                resp[0]['online_stake_total']) / int(1000000000000000000000000000000)
+            for peer in resp[0]['peers']:
+                await update_peer_weights(peer, p_peers)
+    except Exception as e:
+        config.log.warning(await time_log(f"Could not read quorum from node RPC. {e}"))
+    return p_stake_tot, p_stake_req
+
+
+async def update_peer_weights(peer, p_peers):
+    for i, c_peer in enumerate(p_peers):
+        if peer['ip'] == c_peer['ip'] and peer['ip'] != '':
+            weight = int(peer['weight']) / int(1000000000000000000000000000000)
+            p_peers[i] = dict(c_peer, **{"weight": weight})
 
 
 async def _process_monitor_paths(monitorPaths, rpc_wrapper: RpcWrapper, repAccounts, validPaths, monitorIPPaths, monitorIPExistArray):
@@ -66,9 +131,9 @@ def _calculate_version_statistics(config: Config, pVersions, pStakeTot, supply, 
 
         # Calculate other statistics
         config.pStakeTotalStat = int(
-            pStakeTot) / int(supply) * 100 if supply else 0
+            pStakeTot) / int(supply[0]) * 100 if supply else 0
         config.pStakeRequiredStat = int(
-            pStakeReq) / int(supply) * 100 if supply else 0
+            pStakeReq) / int(supply[0]) * 100 if supply else 0
 
         # Calculate portion of weight and TCP in the latest versions
         combinedWeightInLatest = sum(int(peer['weight']) for peer in pPeers if int(
@@ -87,224 +152,57 @@ def _calculate_version_statistics(config: Config, pVersions, pStakeTot, supply, 
         config.log.warning(f"Could not calculate version statistics. {e}")
 
 
-async def getPeers(config: Config, rpc_wrapper: RpcWrapper):
-    log = config.log
-    monitorIPExistArray = config.monitorIPExistArray
+async def get_reps_from_nano_to(rpc_wrapper, config: Config, monitor_paths):
+    try:
+        if config.query_reps == "":
+            monitors = [{"monitor": {"sync": 0, "website": "http://nl_genesis_monitor:80",
+                                     "version": "0", "blocks": 0}, "account": ""}]
+        else:
+            monitors = await rpc_wrapper.request_post(config.query_reps[0], config.query_reps[1], timeout=30)
 
-    while 1:
-        startTime = time.time()  # to measure the loop speed
-        pPeers = []
-        pVersions = []
-        pStakeTot = 0
-        pStakeReq = 0
+        for monitor in monitors:
+            url = monitor.get('website', None)
+            if url and url not in monitor_paths:
+                monitor_paths.append(url)
+    except Exception as e:
+        config.log.warning(await time_log("Error getting reps from nano.to: " + str(e)))
+
+
+async def apply_blacklist(monitor_paths, config):
+    # Converting to a set for efficient lookup
+    blacklist = set(config.blacklist)
+    monitor_paths = [path for path in monitor_paths if path not in blacklist]
+    return monitor_paths
+
+
+async def getPeers(config: Config, rpc_wrapper: RpcWrapper):
+    while True:
+        start_time = time.time()
+        p_peers = []
+        p_versions = []
+        monitor_paths = config.reps.copy()
+        valid_paths = []
+        rep_accounts = []
+
         supply = await rpc_wrapper.get_available_supply()
 
-        # log.info(timeLog("Verifying peers"))
-        monitorPaths = config.reps.copy()
-        monitorIPPaths = {'ip': {}}
-        monitorIPExistArray = {'ip': {}}
+        if not await get_peers_from_node_rpc(rpc_wrapper, config, monitor_paths, p_versions, p_peers):
+            await peer_sleep(start_time, config.interval_get_peer)
+            continue
 
-        # Grab connected peer IPs from the node
-        params = {
-            "action": "peers",
-            "peer_details": True,
-        }
+        p_stake_tot, p_stake_req = await get_voting_weight_stat(rpc_wrapper, config, p_peers)
 
-        try:
-            resp = await rpc_wrapper.get_regular_rpc(params)
-            if 'peers' in resp[0]:
-                peers = resp[0]['peers']
-                for ipv6, value in peers.items():
-                    if ipv6 == '':
-                        continue
-                    if '[::ffff:' in ipv6:  # ipv4
-                        ip = re.search('ffff:(.*)\]:', ipv6).group(1)
-                    else:  # ipv6
-                        ip = '[' + re.search('\[(.*)\]:', ipv6).group(1) + ']'
+        await get_reps_from_nano_to(rpc_wrapper, config, monitor_paths)
+        monitor_paths = await apply_blacklist(monitor_paths, config)
 
-                    if ip != "":
-                        # Only try to find more monitors from peer IP in main network
-                        if config.additional_monitors:
-                            base_path = 'http://' + ip
-                            suffixes = ['', '/nano',
-                                        '/nanoNodeMonitor', '/monitor']
-
-                            for suffix in suffixes:
-                                path = base_path + suffix
-                                if path not in monitorPaths:
-                                    monitorPaths.append(path)
-                                    monitorIPPaths[ip] = path
-
-                        # Read protocol version and type
-                        pVersions.append(value['protocol_version'])
-                        pPeers.append(
-                            {"ip": ipv6, "version": value["protocol_version"], "type": value["type"], "weight": 0, "account": ""})
-
-        except Exception as e:
-            log.warning(timeLog("Could not read peers from node RPC. %r" % e))
-            await peerSleep(startTime, config.runPeersEvery)
-            continue  # break out of main loop and try again next iteration
-
-        # Grab voting weight stat
-        params = {
-            "action": "confirmation_quorum",
-            "peer_details": True,
-        }
-        try:
-            resp = await rpc_wrapper.get_regular_rpc(params)
-            if 'peers_stake_total' in resp[0] and 'quorum_delta' in resp[0] and 'online_stake_total' in resp[0]:
-                pStakeTot = resp[0]['peers_stake_total']
-                pStakeReq = resp[0]['quorum_delta']
-                config.latestOnlineWeight = int(resp[0]['online_stake_total']) / int(
-                    1000000000000000000000000000000)  # used for calculating PR status
-
-                # Find matching IP and include weight in original peer list
-                for peer in resp[0]['peers']:
-                    for i, cPeer in enumerate(pPeers):
-                        if peer['ip'] == cPeer['ip'] and peer['ip'] != '':
-                            # append the relevant PR stats here as well
-                            weight = int(peer['weight']) / \
-                                int(1000000000000000000000000000000)
-
-                            # update previous vaule
-                            pPeers[i] = dict(cPeer, **{"weight": weight})
-                            continue
-
-        except Exception as e:
-            log.warning(timeLog("Could not read quorum from node RPC. %r" % e))
-            pass
-
-        # Grab supply
-        params = {
-            "action": "available_supply"
-        }
-        try:
-            resp = await rpc_wrapper.get_regular_rpc(params)
-            if 'available' in resp[0]:
-                tempSupply = resp[0]['available']
-                if int(tempSupply) > 0:  # To ensure no devision by zero
-                    supply = tempSupply
-
-        except Exception as e:
-            log.warning(timeLog("Could not read supply from node RPC. %r" % e))
-            pass
-
-        # Assuming your_class_instance is an instance of YourClassName
-        _calculate_version_statistics(
-            config, pVersions, pStakeTot, supply, pStakeReq, pPeers)
-
-        # # PERCENTAGE STATS
-        # try:
-        #     maxVersion = 0
-        #     versionCounter = 0
-        #     if len(pVersions) > 0:
-        #         maxVersion = int(max(pVersions))
-        #         # Calculate percentage of nodes on latest version
-        #         versionCounter = 0
-        #         for version in pVersions:
-        #             if int(version) == maxVersion:
-        #                 versionCounter += 1
-
-        #     # Require at least 5 monitors to be at latest version to use as base, or use second latest version
-        #     if versionCounter < 5 and len(pVersions) > 0:
-        #         # extract second largest number by first removing duplicates
-        #         simplified = list(set(pVersions))
-        #         simplified.sort()
-        #         if len(simplified) > 1:
-        #             maxVersion = int(simplified[-2])
-        #         else:
-        #             maxVersion = int(simplified[0])
-        #         versionCounter = 0
-        #         for version in pVersions:
-        #             if int(version) == maxVersion:
-        #                 versionCounter += 1
-
-        #     if len(pVersions) > 0:
-        #         config.pLatestVersionStat = versionCounter / \
-        #             int(len(pVersions)) * 100
-        #     else:
-        #         config.pLatestVersionStat = 0
-
-        #     config.pStakeTotalStat = int(pStakeTot) / int(supply) * 100
-        #     config.pStakeRequiredStat = int(pStakeReq) / int(supply) * 100
-
-        #     # Calculate portion of weight and TCP in the latest versions
-        #     combinedWeightInLatest = 0
-        #     combinedTotalWeight = 0
-        #     TCPInLatestCounter = 0
-        #     for peer in pPeers:
-        #         combinedTotalWeight = combinedTotalWeight + \
-        #             (int(peer['weight'])*int(1000000000000000000000000000000))
-        #         if int(peer['version']) == int(maxVersion):
-        #             combinedWeightInLatest = combinedWeightInLatest + \
-        #                 (int(peer['weight']) *
-        #                  int(1000000000000000000000000000000))
-
-        #         if (peer['type'] == 'tcp'):
-        #             TCPInLatestCounter += 1
-
-        #     if (int(pStakeTot) > 0):
-        #         config.pStakeLatestVersionStat = int(
-        #             combinedWeightInLatest) / int(combinedTotalWeight) * 100
-
-        #     if len(pPeers) > 0:
-        #         config.pTypesStat = TCPInLatestCounter / int(len(pPeers)) * 100
-        #     else:
-        #         config.pTypesStat = 0
-
-        # except Exception as e:
-        #     log.warning(timeLog("Could not calculate weight stat. %r" % e))
-        #     pass
-
-        # Get monitors from Ninja API
-        try:
-            if config.query_reps == "":
-                monitors = [{"monitor": {
-                    "sync": 0, "url": "http://nl_genesis_monitor:80", "version": "0", "blocks": 0}, "account": ""}]
-            else:
-                monitors = await rpc_wrapper.request_post(
-                    config.query_reps[0], config.query_reps[1], timeout=30)
-            if len(monitors) > 0:
-                for monitor in monitors:
-                    try:
-                        url = monitor['website']
-                        if url is None:
-                            continue
-                        # # Correct bad ending in some URLs like /api.php which will be added later
-                        # url = url.replace('/api.php', '')
-                        # if url[-1] == '/':  # ends with /
-                        #     url = url[:-1]
-
-                        monitorPaths.append(url)
-                    except:
-                        log.warning(timeLog("Invalid Ninja monitor"))
-
-        except Exception as e:
-            pass
-
-        # Get aliases from URL        if config.aliasUrl != '':
-            try:
-                config.aliases = rpc_wrapper.request_get(
-                    config.aliasUrl, timeout=30)
-            except Exception as e:
-                pass
-                # log.warning(timeLog("Could not read aliases from ninja. %r" %e))
-
-        # Apply blacklist
-        for i, node in enumerate(monitorPaths):
-            for exl in config.blacklist:
-                if node == exl:
-                    del monitorPaths[i]
-                    break
-
-        # Verify all URLS
-        validPaths = []
-        repAccounts = []
-
-        await _process_monitor_paths(monitorPaths, rpc_wrapper, repAccounts, validPaths, monitorIPPaths, monitorIPExistArray)
+        # Call to _process_monitor_paths
+        await _process_monitor_paths(monitor_paths, rpc_wrapper, rep_accounts, valid_paths, {}, {})
 
         # Update the final list
-        config.reps = validPaths.copy()
-        # log.info(reps)
+        config.reps = valid_paths.copy()
 
-        await peerSleep(startTime, config.runPeersEvery)
+        # Call to _calculate_version_statistics
+        _calculate_version_statistics(
+            config, p_versions, p_stake_tot, supply, p_stake_req, p_peers)
+
+        await peer_sleep(start_time, config.interval_get_peer)

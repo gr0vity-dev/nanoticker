@@ -3,7 +3,7 @@ from src.get_api import ApiHandler
 from collections import deque
 import websockets
 import json
-from src.helper import timeLog
+from src.helper import time_log
 import time
 import asyncio
 
@@ -23,14 +23,14 @@ class WebsocketHandler:
                 ack = json.loads(await websocket.recv())
                 if 'ack' in ack:
                     if ack['ack'] == 'subscribe':
-                        self.log.info(timeLog("Websocket opened."))
+                        self.log.info(time_log("Websocket opened."))
                     else:
                         self.log.warning(
-                            timeLog("Could not subscribe to websocket."))
+                            time_log("Could not subscribe to websocket."))
                         return
                 else:
                     self.log.warning(
-                        timeLog("Could not subscribe to websocket."))
+                        time_log("Could not subscribe to websocket."))
                     return
 
                 while 1:
@@ -108,7 +108,7 @@ class WebsocketHandler:
                                 if not found:
                                     # prepare first history data
                                     self.log.info(
-                                        timeLog("Preparing history for: " + address_tele + ':' + port_tele))
+                                        time_log("Preparing history for: " + address_tele + ':' + port_tele))
 
                                     timeD = deque(
                                         [0]*self.config.checkCPSEvery)
@@ -179,16 +179,16 @@ class WebsocketHandler:
                                     self.config.startTime = time.time()
 
         except websockets.ConnectionClosed as e:
-            self.log.warning(timeLog("Websocket connection to %s was closed" %
-                                     self.config.websocketAddress))
+            self.log.warning(time_log("Websocket connection to %s was closed" %
+                                      self.config.websocketAddress))
             await asyncio.sleep(10)
-            self.log.info(timeLog("Reconnecting to %s" %
+            self.log.info(time_log("Reconnecting to %s" %
                           self.config.websocketAddress))
             # try reconnect
             await self.websocketLoop()
 
         except Exception as e:
-            self.log.warning(timeLog(
+            self.log.warning(time_log(
                 "Failed to process websocket telemetry. %r. Websocket reconnection attempt in 60sec" % e))
             await asyncio.sleep(60)
             # try reconnect

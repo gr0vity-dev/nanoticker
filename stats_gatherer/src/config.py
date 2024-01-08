@@ -1,4 +1,5 @@
 from src.known_reps import get_reps, get_blacklist
+from secret_config import live_node_pw, live_node_user, beta_node_pw, beta_node_user, dev_node_pw, dev_node_user
 from collections import deque  # for array shifting
 import time
 import logging
@@ -11,48 +12,75 @@ class Config:
         self.setup_environment()
 
     def setup_environment(self):
+
+        self.common_config()
+
         if self.env.lower() in ("dev", "develop", "local"):
             # Set up DEV environment variables
-            self.nodeUrl = 'https://rpcproxy.bnano.info/proxy'
+            self.nodeUrl = 'http://localhost:45000'
+            self.nodePw = dev_node_pw
+            self.nodeUser = dev_node_user
 
             # ... other DEV config
         elif self.env.lower() in ("beta"):
             self.nodeUrl = 'https://rpcproxy.bnano.info/proxy'  # beta
-            self.telemetryAddress = 'nanobeta'
+            self.nodePw = beta_node_pw
+            self.nodeUser = beta_node_user
+
+            self.telemetryAddress = '127.0.0.1'
             self.telemetryPort = '54000'
             self.websocketAddress = 'wss://nanolooker.bnano.info/ws'
             self.logFile = "repstat.log"
             # self.statFile = '/var/www/localhost/htdocs/json/stats.json'  # netdata container
             # self.monitorFile = '/var/www/localhost/htdocs/json/monitors.json'  # netdata container
-            self.statFile = 'stats.json'  # netdata container
-            self.monitorFile = 'monitors.json'  # netdata container
+
             self.activeCurrency = 'nano-beta'  # nano, banano or nano-beta
             # ninjaMonitors = 'https://beta.mynano.ninja/api/accounts/monitors' #beta
-            self.ninjaMonitors = ''
+            # self.ninjaMonitors = ''
+            self.query_reps = ''
             self.aliasUrl = ''
             # telemetry is retrived with another command for this account
             self.localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x'
             # telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
-            self.websocketPeerDropLimit = 60
+
             self.additional_monitors = False
         elif self.env.lower() in ("main", "live", "prod"):
             # Set up LIVE environment variables
-            self.nodeUrl = 'http://[::1]:7076'
+            self.nodeUrl = 'https://nanowallet.cc/proxy'
+            self.nodeUser = live_node_user
+            self.nodePw = live_node_pw
+            self.websocketAddress = 'wss://nanowallet.cc/ws'  # '192.168.178.88:7078'
+
+            self.telemetryAddress = '127.0.0.1'
+            self.logFile = "prod_repstat.log"
+            self.telemetryPort = '7075'
+            self.activeCurrency = 'nano'
             self.additional_monitors = True
+            self.query_reps = ("https://rpc.nano.to", {"action": "reps"})
+            self.aliasUrl = ''
+            self.localTelemetryAccount = 'nano_3sz3bi6mpeg5jipr1up3hotxde6gxum8jotr55rzbu9run8e3wxjq1rod9a6'
             # ... other LIVE config
         else:
             raise ValueError(f"{self.env} is not a valid Environment")
 
-        # Common configurations for all environments
-        self.common_config()
+        self.post_config()
+
+    def post_config(self):
+        filename = Path(self.logFile)
+        filename.touch(exist_ok=True)
+        logging.basicConfig(level=logging.INFO, filename=self.logFile,
+                            filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
+        self.log = logging.getLogger(__name__)
 
     def common_config(self):
         # Set up common configurations
+        self.websocketPeerDropLimit = 60
+        self.statFile = 'stats.json'  # netdata container
+        self.monitorFile = 'monitors.json'  # netdata container
         checkCPSEvery = 1
         self.checkCPSEvery = checkCPSEvery
         self.repsInit = get_reps(self.env)
         self.blacklist = get_blacklist(self.env)
-        self.logFile = "repstat.log"
         self.minCount = 1
         # Speed test source account
         self.workUrl = 'http://127.0.0.1:9971'
@@ -74,7 +102,7 @@ class Config:
 
         # run API check (at fastest) every X sec (the websocket on beta runs every 18sec and main every 60)
         self.runAPIEvery = 10
-        self.runPeersEvery = 120  # run peer check every X sec
+        self.interval_get_peer = 120  # run peer check every X sec
         self.runStatEvery = 3600  # publish stats to blockchain every x sec
         self.maxURLRequests = 250  # maximum concurrent requests
         # call API if x sec has passed since last websocket message
@@ -130,14 +158,3 @@ class Config:
         self.websocketCountDownTimer = time.time()
         self.startTime = time.time()
         self.apiShouldCall = True
-
-        # speed test memory
-        self.speedtest_latest = []
-        self.speedtest_latest_ms = [0]
-        self.speedtest_last_valid = time.time()
-
-        filename = Path(self.logFile)
-        filename.touch(exist_ok=True)
-        logging.basicConfig(level=logging.INFO, filename=self.logFile,
-                            filemode='a+', format='%(name)s - %(levelname)s - %(message)s')
-        self.log = logging.getLogger(__name__)

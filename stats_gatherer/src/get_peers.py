@@ -14,9 +14,81 @@ async def peerSleep(startTime, runPeersEvery):
     await asyncio.sleep(sleep)
 
 
+async def _process_monitor_paths(monitorPaths, rpc_wrapper: RpcWrapper, repAccounts, validPaths, monitorIPPaths, monitorIPExistArray):
+    # Create a list of tasks
+    tasks = [rpc_wrapper.verify_monitor(path) for path in monitorPaths]
+
+    # Run tasks in parallel
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Process the results
+    for result, path in zip(results, monitorPaths):
+        if isinstance(result, Exception):
+            # Handle exception (e.g., log it)
+            continue
+
+        if result:
+            # Check for duplicate account
+            if result[0] not in repAccounts:
+                validPaths.append(result[1])
+                repAccounts.append(result[0])
+
+                # Check if path exists among special IP paths
+                if result[1] in monitorIPPaths.values():
+                    for key, value in monitorIPPaths.items():
+                        if value == result[1]:
+                            monitorIPExistArray[key] = {'account': result[0]}
+                            break
+
+
+def _calculate_version_statistics(config: Config, pVersions, pStakeTot, supply, pStakeReq, pPeers):
+    try:
+        total_nodes = len(pVersions)
+        if total_nodes > 0:
+            # Calculate the frequency of each version
+            version_frequencies = {}
+            for version in pVersions:
+                version = int(version)
+                version_frequencies[version] = version_frequencies.get(
+                    version, 0) + 1
+
+            # Determine the latest version based on the 10% threshold
+            latest_version = None
+            for version, count in version_frequencies.items():
+                if count / total_nodes >= 0.10 and (latest_version is None or version > latest_version):
+                    latest_version = version
+
+            # Calculate percentage of nodes on latest version
+            versionCounter = version_frequencies.get(latest_version, 0)
+            config.pLatestVersionStat = versionCounter / total_nodes * 100
+        else:
+            config.pLatestVersionStat = 0
+
+        # Calculate other statistics
+        config.pStakeTotalStat = int(
+            pStakeTot) / int(supply) * 100 if supply else 0
+        config.pStakeRequiredStat = int(
+            pStakeReq) / int(supply) * 100 if supply else 0
+
+        # Calculate portion of weight and TCP in the latest versions
+        combinedWeightInLatest = sum(int(peer['weight']) for peer in pPeers if int(
+            peer['version']) == latest_version) if latest_version is not None else 0
+        combinedTotalWeight = sum(int(peer['weight']) for peer in pPeers)
+        TCPInLatestCounter = sum(1 for peer in pPeers if peer['type'] == 'tcp')
+
+        if combinedTotalWeight > 0:
+            config.pStakeLatestVersionStat = combinedWeightInLatest / combinedTotalWeight * 100
+        if total_nodes > 0:
+            config.pTypesStat = TCPInLatestCounter / total_nodes * 100
+        else:
+            config.pTypesStat = 0
+
+    except Exception as e:
+        config.log.warning(f"Could not calculate version statistics. {e}")
+
+
 async def getPeers(config: Config, rpc_wrapper: RpcWrapper):
     log = config.log
-    node_url = config.nodeUrl
     monitorIPExistArray = config.monitorIPExistArray
 
     while 1:
@@ -25,7 +97,7 @@ async def getPeers(config: Config, rpc_wrapper: RpcWrapper):
         pVersions = []
         pStakeTot = 0
         pStakeReq = 0
-        supply = await rpc_wrapper.get_available_supply(node_url)
+        supply = await rpc_wrapper.get_available_supply()
 
         # log.info(timeLog("Verifying peers"))
         monitorPaths = config.reps.copy()
@@ -53,46 +125,15 @@ async def getPeers(config: Config, rpc_wrapper: RpcWrapper):
                     if ip != "":
                         # Only try to find more monitors from peer IP in main network
                         if config.additional_monitors:
-                            # Combine with previous list and ignore duplicates
-                            exists = False
-                            for url in monitorPaths:
-                                path = 'http://'+ip
-                                if path == url:
-                                    exists = True
-                                    break
-                            if not exists:
-                                monitorPaths.append(path)
-                                monitorIPPaths[ip] = path
+                            base_path = 'http://' + ip
+                            suffixes = ['', '/nano',
+                                        '/nanoNodeMonitor', '/monitor']
 
-                            exists = False
-                            for url in monitorPaths:
-                                path = 'http://'+ip+'/nano'
-                                if path == url:
-                                    exists = True
-                                    break
-                            if not exists:
-                                monitorPaths.append(path)
-                                monitorIPPaths[ip] = path
-
-                            exists = False
-                            for url in monitorPaths:
-                                path = 'http://'+ip+'/nanoNodeMonitor'
-                                if path == url:
-                                    exists = True
-                                    break
-                            if not exists:
-                                monitorPaths.append(path)
-                                monitorIPPaths[ip] = path
-
-                            exists = False
-                            for url in monitorPaths:
-                                path = 'http://'+ip+'/monitor'
-                                if path == url:
-                                    exists = True
-                                    break
-                            if not exists:
-                                monitorPaths.append(path)
-                                monitorIPPaths[ip] = path
+                            for suffix in suffixes:
+                                path = base_path + suffix
+                                if path not in monitorPaths:
+                                    monitorPaths.append(path)
+                                    monitorIPPaths[ip] = path
 
                         # Read protocol version and type
                         pVersions.append(value['protocol_version'])
@@ -148,103 +189,100 @@ async def getPeers(config: Config, rpc_wrapper: RpcWrapper):
             log.warning(timeLog("Could not read supply from node RPC. %r" % e))
             pass
 
-        # PERCENTAGE STATS
-        try:
-            maxVersion = 0
-            versionCounter = 0
-            if len(pVersions) > 0:
-                maxVersion = int(max(pVersions))
-                # Calculate percentage of nodes on latest version
-                versionCounter = 0
-                for version in pVersions:
-                    if int(version) == maxVersion:
-                        versionCounter += 1
+        # Assuming your_class_instance is an instance of YourClassName
+        _calculate_version_statistics(
+            config, pVersions, pStakeTot, supply, pStakeReq, pPeers)
 
-            # Require at least 5 monitors to be at latest version to use as base, or use second latest version
-            if versionCounter < 5 and len(pVersions) > 0:
-                # extract second largest number by first removing duplicates
-                simplified = list(set(pVersions))
-                simplified.sort()
-                if len(simplified) > 1:
-                    maxVersion = int(simplified[-2])
-                else:
-                    maxVersion = int(simplified[0])
-                versionCounter = 0
-                for version in pVersions:
-                    if int(version) == maxVersion:
-                        versionCounter += 1
+        # # PERCENTAGE STATS
+        # try:
+        #     maxVersion = 0
+        #     versionCounter = 0
+        #     if len(pVersions) > 0:
+        #         maxVersion = int(max(pVersions))
+        #         # Calculate percentage of nodes on latest version
+        #         versionCounter = 0
+        #         for version in pVersions:
+        #             if int(version) == maxVersion:
+        #                 versionCounter += 1
 
-            if len(pVersions) > 0:
-                config.pLatestVersionStat = versionCounter / \
-                    int(len(pVersions)) * 100
-            else:
-                config.pLatestVersionStat = 0
+        #     # Require at least 5 monitors to be at latest version to use as base, or use second latest version
+        #     if versionCounter < 5 and len(pVersions) > 0:
+        #         # extract second largest number by first removing duplicates
+        #         simplified = list(set(pVersions))
+        #         simplified.sort()
+        #         if len(simplified) > 1:
+        #             maxVersion = int(simplified[-2])
+        #         else:
+        #             maxVersion = int(simplified[0])
+        #         versionCounter = 0
+        #         for version in pVersions:
+        #             if int(version) == maxVersion:
+        #                 versionCounter += 1
 
-            config.pStakeTotalStat = int(pStakeTot) / int(supply) * 100
-            config.pStakeRequiredStat = int(pStakeReq) / int(supply) * 100
+        #     if len(pVersions) > 0:
+        #         config.pLatestVersionStat = versionCounter / \
+        #             int(len(pVersions)) * 100
+        #     else:
+        #         config.pLatestVersionStat = 0
 
-            # Calculate portion of weight and TCP in the latest versions
-            combinedWeightInLatest = 0
-            combinedTotalWeight = 0
-            TCPInLatestCounter = 0
-            for peer in pPeers:
-                combinedTotalWeight = combinedTotalWeight + \
-                    (int(peer['weight'])*int(1000000000000000000000000000000))
-                if int(peer['version']) == int(maxVersion):
-                    combinedWeightInLatest = combinedWeightInLatest + \
-                        (int(peer['weight']) *
-                         int(1000000000000000000000000000000))
+        #     config.pStakeTotalStat = int(pStakeTot) / int(supply) * 100
+        #     config.pStakeRequiredStat = int(pStakeReq) / int(supply) * 100
 
-                if (peer['type'] == 'tcp'):
-                    TCPInLatestCounter += 1
+        #     # Calculate portion of weight and TCP in the latest versions
+        #     combinedWeightInLatest = 0
+        #     combinedTotalWeight = 0
+        #     TCPInLatestCounter = 0
+        #     for peer in pPeers:
+        #         combinedTotalWeight = combinedTotalWeight + \
+        #             (int(peer['weight'])*int(1000000000000000000000000000000))
+        #         if int(peer['version']) == int(maxVersion):
+        #             combinedWeightInLatest = combinedWeightInLatest + \
+        #                 (int(peer['weight']) *
+        #                  int(1000000000000000000000000000000))
 
-            if (int(pStakeTot) > 0):
-                config.pStakeLatestVersionStat = int(
-                    combinedWeightInLatest) / int(combinedTotalWeight) * 100
+        #         if (peer['type'] == 'tcp'):
+        #             TCPInLatestCounter += 1
 
-            if len(pPeers) > 0:
-                config.pTypesStat = TCPInLatestCounter / int(len(pPeers)) * 100
-            else:
-                config.pTypesStat = 0
+        #     if (int(pStakeTot) > 0):
+        #         config.pStakeLatestVersionStat = int(
+        #             combinedWeightInLatest) / int(combinedTotalWeight) * 100
 
-        except Exception as e:
-            log.warning(timeLog("Could not calculate weight stat. %r" % e))
-            pass
+        #     if len(pPeers) > 0:
+        #         config.pTypesStat = TCPInLatestCounter / int(len(pPeers)) * 100
+        #     else:
+        #         config.pTypesStat = 0
+
+        # except Exception as e:
+        #     log.warning(timeLog("Could not calculate weight stat. %r" % e))
+        #     pass
 
         # Get monitors from Ninja API
         try:
-            if config.ninjaMonitors == "":
+            if config.query_reps == "":
                 monitors = [{"monitor": {
                     "sync": 0, "url": "http://nl_genesis_monitor:80", "version": "0", "blocks": 0}, "account": ""}]
             else:
-                monitors = rpc_wrapper.request_get(
-                    config.ninjaMonitors, timeout=30)
+                monitors = await rpc_wrapper.request_post(
+                    config.query_reps[0], config.query_reps[1], timeout=30)
             if len(monitors) > 0:
                 for monitor in monitors:
                     try:
-                        url = monitor['monitor']['url']
-                        # Correct bad ending in some URLs like /api.php which will be added later
-                        url = url.replace('/api.php', '')
-                        if url[-1] == '/':  # ends with /
-                            url = url[:-1]
+                        url = monitor['website']
+                        if url is None:
+                            continue
+                        # # Correct bad ending in some URLs like /api.php which will be added later
+                        # url = url.replace('/api.php', '')
+                        # if url[-1] == '/':  # ends with /
+                        #     url = url[:-1]
 
-                        # Ignore duplicates (IPs may still lead to same host name but that will be dealt with later)
-                        exists = False
-                        for path in monitorPaths:
-                            if path == url:
-                                exists = True
-                                break
-                        if not exists:
-                            monitorPaths.append(url)
+                        monitorPaths.append(url)
                     except:
                         log.warning(timeLog("Invalid Ninja monitor"))
 
         except Exception as e:
             pass
-            # log.warning(timeLog("Could not read monitors from ninja. %r" %e))
 
-        # Get aliases from URL
-        if config.aliasUrl != '':
+        # Get aliases from URL        if config.aliasUrl != '':
             try:
                 config.aliases = rpc_wrapper.request_get(
                     config.aliasUrl, timeout=30)
@@ -263,49 +301,7 @@ async def getPeers(config: Config, rpc_wrapper: RpcWrapper):
         validPaths = []
         repAccounts = []
 
-        """Split URLS in max X concurrent requests"""
-        for chunk in chunks(monitorPaths, config.maxURLRequests):
-            tasks = []
-            for path in chunk:
-                if len(path) > 6:
-                    if path[-4:] != '.htm':
-                        tasks.append(asyncio.ensure_future(
-                            rpc_wrapper.verify_monitor('%s/api.php' % path)))
-                    else:
-                        tasks.append(asyncio.ensure_future(
-                            rpc_wrapper.verify_monitor(path)))
-            try:
-                await asyncio.gather(*tasks)
-
-            except asyncio.TimeoutError as t:
-                pass
-                # log.warning(timeLog('Monitor Peer read timeout: %r' %t))
-
-            for i, task in enumerate(tasks):
-                try:
-                    if task.result() is not None and task.result():
-                        # Save valid peer urls
-                        # Check for duplicate account (IP same as hostname)
-                        exists = False
-                        for account in repAccounts:
-                            if task.result()[0] == account:
-                                exists = True
-                                break
-                        if not exists:
-                            validPaths.append(task.result()[1])
-                            # Check if path exist among special IP paths
-                            for key in monitorIPPaths:
-                                if monitorIPPaths[key] == task.result()[1]:
-                                    monitorIPExistArray[key] = {
-                                        'account': task.result()[0]}
-                        repAccounts.append(task.result()[0])
-
-                except Exception as e:
-                    pass
-
-                finally:
-                    if task.done() and not task.cancelled():
-                        task.exception()  # this doesn't raise anything, just mark exception retrieved
+        await _process_monitor_paths(monitorPaths, rpc_wrapper, repAccounts, validPaths, monitorIPPaths, monitorIPExistArray)
 
         # Update the final list
         config.reps = validPaths.copy()

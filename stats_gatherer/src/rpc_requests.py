@@ -3,6 +3,8 @@ import async_timeout
 import asyncio
 import json
 import time
+import base64
+import re
 from src.config import Config
 
 
@@ -12,25 +14,36 @@ class RpcWrapper:
         self.rpc_timeout = config.rpcTimeout
         self.log = config.log
         self.node_url = config.nodeUrl
+        self.node_pw = config.nodePw
+        self.node_user = config.nodeUser
 
     async def fetch(self, url, method='GET', data=None, json_serialize=json.dumps, timeout=None):
+        # Basic Authentication setup
+        basic_auth = None
+        if url == self.node_url and self.node_user and self.node_pw:
+            basic_auth = base64.b64encode(
+                f"{self.node_user}:{self.node_pw}".encode()).decode()
+
         try:
-            async with aiohttp.ClientSession(json_serialize=json_serialize, connector=aiohttp.TCPConnector(ssl=False)) as session:
+            # Creating a new session for each call
+            async with aiohttp.ClientSession(json_serialize=json_serialize) as session:
+                headers = {
+                    'Authorization': f'Basic {basic_auth}'} if basic_auth else {}
+
                 with async_timeout.timeout(timeout or self.rpc_timeout):
                     if method == 'GET':
-                        async with session.get(url) as response:
-                            if response.status == 200:
-                                return await response.text()
-                            else:
-                                self.log.warning(
-                                    f"GET request failed with status {response.status} for URL: {url}")
-                    elif method == 'POST':
-                        async with session.post(url, json=data) as response:
-                            if response.status == 200:
-                                return await response.json()
-                            else:
-                                self.log.warning(
-                                    f"POST request failed with status {response.status} for URL: {url}")
+                        response = await session.get(url, headers=headers)
+                    else:  # Assuming POST
+                        response = await session.post(url, json=data, headers=headers)
+
+                    # Check response and return accordingly
+                    if response.status == 200:
+                        result = await response.json() if method == 'POST' else await response.text()
+                        return result
+                    else:
+                        self.log.warning(
+                            f"{method} request failed with status {response.status} for URL: {url}")
+
         except asyncio.TimeoutError:
             self.log.warning(f"Request timed out for URL: {url}")
         except Exception as e:
@@ -52,12 +65,12 @@ class RpcWrapper:
         response_json = await self.fetch(url, method='POST', data=data, timeout=timeout or self.rpc_timeout)
         return response_json
 
-    async def get_available_supply(self, node_url):
+    async def get_available_supply(self):
         params = {"action": "available_supply"}
         call_time = time.time()
 
         # Use the fetch method with POST
-        response_json = await self.fetch(node_url, method='POST', data=params)
+        response_json = await self.fetch(self.node_url, method='POST', data=params)
 
         if response_json is not None:
             time_diff = round((time.time() - call_time) * 1000)
@@ -88,12 +101,19 @@ class RpcWrapper:
             return [{}, False, url, time.time(), None]
 
     async def verify_monitor(self, url):
-        response_text = await self.fetch(url)
+        # Clean the URL by removing unwanted extensions
+        cleaned_url = re.sub(r'\.htm(l)?$', '', url)
+
+        # Append "/api.php" if it's not already there
+        query_url = cleaned_url
+        if not cleaned_url.endswith('/api.php'):
+            query_url = cleaned_url + '/api.php'
+
+        response_text = await self.fetch(query_url)
         if response_text:
             try:
                 response_json = json.loads(response_text)
                 if int(response_json.get('currentBlock', 0)) > 0:
-                    cleaned_url = url.replace('/api.php', '')
                     return [response_json['nanoNodeAccount'], cleaned_url]
             except json.JSONDecodeError:
                 self.log.error(

@@ -1708,44 +1708,7 @@ NETDATA.timeout = {
             this.clear = function (handle) {
                 return window.cancelAnimationFrame(handle.value);
             };
-        // } else if (window.webkitRequestAnimationFrame) {
-        //     this.step = function (callback) {
-        //         return window.webkitRequestAnimationFrame(callback);
-        //     };
-
-        //     if (window.webkitCancelAnimationFrame) {
-        //         this.clear = function (handle) {
-        //             return window.webkitCancelAnimationFrame(handle.value);
-        //         };
-        //     } else if (window.webkitCancelRequestAnimationFrame) {
-        //         this.clear = function (handle) {
-        //             return window.webkitCancelRequestAnimationFrame(handle.value);
-        //         };
-        //     }
-        // } else if (window.mozRequestAnimationFrame) {
-        //     this.step = function (callback) {
-        //         return window.mozRequestAnimationFrame(callback);
-        //     };
-
-        //     this.clear = function (handle) {
-        //         return window.mozCancelRequestAnimationFrame(handle.value);
-        //     };
-        // } else if (window.oRequestAnimationFrame) {
-        //     this.step = function (callback) {
-        //         return window.oRequestAnimationFrame(callback);
-        //     };
-
-        //     this.clear = function (handle) {
-        //         return window.oCancelRequestAnimationFrame(handle.value);
-        //     };
-        // } else if (window.msRequestAnimationFrame) {
-        //     this.step = function (callback) {
-        //         return window.msRequestAnimationFrame(callback);
-        //     };
-
-        //     this.clear = function (handle) {
-        //         return window.msCancelRequestAnimationFrame(handle.value);
-        //     };
+  
         } else {
             custom = false;
         }
@@ -1782,7 +1745,7 @@ NETDATA.timeout.init();
 
 NETDATA.themes = {
     white: {
-        bootstrap_css: NETDATA.serverStatic + 'css/bootstrap-3.3.7.css',
+        bootstrap_css: 'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css',
         dashboard_css: NETDATA.serverStatic + 'dashboard.css?v20190902-0',
         background: '#FFFFFF',
         foreground: '#000000',
@@ -1813,18 +1776,13 @@ NETDATA.themes = {
         }
     },
     slate: {
-        bootstrap_css: NETDATA.serverStatic + 'css/bootstrap-slate-flat-3.3.7.css?v20161229-1',
+        bootstrap_css: 'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css',
         dashboard_css: NETDATA.serverStatic + 'dashboard.slate.css?v20190902-0',
         background: '#272b30',
         foreground: '#C8C8C8',
         grid: '#283236',
         axis: '#283236',
-        highlight: '#383838',
-        /*          colors: [   '#55bb33', '#ff2222',   '#0099C6', '#faa11b',   '#adbce0', '#DDDD00',
-                            '#4178ba', '#f58122',   '#a5cc39', '#f58667',   '#f5ef89', '#cf93c0',
-                            '#a5d18a', '#b8539d',   '#3954a3', '#c8a9cf',   '#c7de8a', '#fad20a',
-                            '#a6a479', '#a66da8' ],
-        */
+        highlight: '#383838',       
         colors: ['#66AA00', '#FE3912', '#3366CC', '#D66300', '#0099C6', '#DDDD00',
             '#5054e6', '#EE9911', '#BB44CC', '#e45757', '#ef0aef', '#CC7700',
             '#22AA99', '#109618', '#905bfd', '#f54882', '#4381bf', '#ff3737',
@@ -1848,20 +1806,14 @@ NETDATA.themes = {
             gradient_color: '#000000'
         }
     },
-    darkly: {
-        //bootstrap_css: NETDATA.serverStatic + 'css/bootstrap-slate-flat-3.3.7.css?v20161229-1',
+    darkly: {        
         bootstrap_css: NETDATA.serverStatic + 'css/bootstrap-darkly.css?v20190815-1',
         dashboard_css: NETDATA.serverStatic + 'css/dashboard.darkly.css?v20190815-1',
         background: '#272b30',
         foreground: '#C8C8C8',
         grid: '#20282b',
         axis: '#20282b',
-        highlight: '#383838',
-        /*          colors: [   '#55bb33', '#ff2222',   '#0099C6', '#faa11b',   '#adbce0', '#DDDD00',
-                            '#4178ba', '#f58122',   '#a5cc39', '#f58667',   '#f5ef89', '#cf93c0',
-                            '#a5d18a', '#b8539d',   '#3954a3', '#c8a9cf',   '#c7de8a', '#fad20a',
-                            '#a6a479', '#a66da8' ],
-        */
+        highlight: '#383838', 
         colors: ['#66AA00', '#FE3912', '#3366CC', '#D66300', '#0099C6', '#DDDD00',
             '#5054e6', '#EE9911', '#BB44CC', '#e45757', '#ef0aef', '#CC7700',
             '#22AA99', '#109618', '#905bfd', '#f54882', '#4381bf', '#ff3737',

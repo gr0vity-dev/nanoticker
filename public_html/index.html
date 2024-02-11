@@ -13,7 +13,7 @@
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 	<meta property="og:locale" content="en_US" />
-	<meta property="og:url" content="https://nanoticker.info"/>
+	<meta property="og:url" content="https://stats.nanobrowse.com"/>
 	<meta property="og:type" content="website"/>
 	<meta property="og:site_name" content="NanoTicker"/>
 	<meta property="og:title" content="NanoTicker - Realtime Performance"/>
@@ -30,20 +30,15 @@
   <meta name="nano" content="nano_1gur37mt5cawjg5844bmpg8upo4hbgnbbuwcerdobqoeny4ewoqshowfakfo"/>
 
 	<link rel="stylesheet" type="text/css" href="css/reps.css">
-  <!--<link rel="stylesheet" href="css/jquery-ui-1.12.1.min.css">-->
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css">
   <!-- MDBootstrap Datatables  -->
   <link href="css/addons/datatables.min.css" rel="stylesheet">
-  <!--<link href="css/addons/datatables-select.min.css" rel="stylesheet">-->
 
   <!-- JQuery -->
   <script type="text/javascript" src="js/jquery-3.4.1.min.js"></script>
   <!-- For jquery tooltip -->
-  <!--<script src="https://code.jquery.com/jquery-1.12.4.js"></script>-->
   <script src="js/jquery-ui-1.12.1.min.js"></script>
-  <!-- Bootstrap tooltips -->
-  <!--<script type="text/javascript" src="js/popper.min.js"></script>-->
   <!-- MDBootstrap Datatables  -->
   <script type="text/javascript" src="js/addons/datatables.min.js"></script>
   <script type="text/javascript" src="js/addons/datatables-select.min.js"></script>
@@ -56,56 +51,27 @@
     var monitorsUpdateInterval = 10000; //Interval for client side update
     var monitorFile = 'json/monitors.json'
     var statFile = 'json/stats.json'
-    //var monitorFile = 'https://json.nanoticker.info/?file=monitors'
-    //var statFile = 'https://json.nanoticker.info/?file=stats'
-    //var explorerBaseUrl = 'https://nanocrawler.cc/explorer/account/'
-    var explorerBaseUrl = 'https://nanolooker.bnano.info/account/'
+    var explorerBaseUrl = '%%EXPLORER_BASE_URL%%';
     //var prColor = '#4a90e2'
     var GAPageName = 'main-net'
     var GATableName = 'Table-main'
   </script>
 
-  <script type="text/javascript">var netdataServer = "https://netdata.bnano.info"; </script>
-  <script type="text/javascript">var netdataTheme = 'slate'</script>
-  <script type="text/javascript" src="https://netdata.bnano.info/dashboard_custom.js"></script>
-  <script>
-    // Set options for TV operation
-    // This has to be done, after dashboard.js is loaded
-  
-    // destroy charts not shown (lowers memory on the browser)
-    NETDATA.options.current.destroy_on_hide = false;
-  
-    // set this to false, to always show all dimensions
-    NETDATA.options.current.eliminate_zero_dimensions = false;
-  
-    // lower the pressure on this browser
-    NETDATA.options.current.concurrent_refreshes = false;
-  
-    // if the tv browser is too slow (a pi?)
-    // set this to false
-    NETDATA.options.current.parallel_refresher = true;
-  
-    // always update the charts, even if focus is lost
-    NETDATA.options.current.stop_updates_when_focus_is_lost = false;
-  
-    // Since you may render charts from many servers and any of them may
-    // become offline for some time, the charts will break.
-    // This will reload the page every RELOAD_EVERY minutes
-  
-    var RELOAD_EVERY = 10;
-    setTimeout(function(){
-        location.reload();
-    }, RELOAD_EVERY * 60 * 1000);
-  
-    </script>
+   <script>   
+    var netdataTheme = 'slate'; // this is dark     
+  </script>
+
+  <script type="text/javascript">var netdataServer = "%%NETDATA_SERVER%%";</script>
+  <script type="text/javascript" src="%%NETDATA_SERVER%%/dashboard_custom.js"></script>    
+
+    
 </head>
-<body>
+<body style="background-color:#272b30">
 
 <div class="div-main">
   <div class="title-text">
     <h1>NanoTicker - Network Performance</h1>
     <h5>Combined data from Nano nodes using telemetry and <a href="https://github.com/NanoTools/nanoNodeMonitor" target="_blank">Monitors</a>. Hover/touch titles for info.</h5>
-    <!--<div style="background-color: #823281; width: 700px; display: inline-block; padding: 10px; margin: 20px;"><p style="color: white;">Nanoticker has been hosted since 2019 for free and without ads. If you would like me to continue doing that, please consider sending a <span style="color: #00dcff;" class="link-span" onClick="showDonateModal()">Nano donation</span> or sponsor me via <a style="color: #00dcff !important;" href="https://github.com/sponsors/joohansson" target="_blank">Github</a></p></div>-->
     <div>
       <span class="title" title="Hide all charts for better performance.<br/>
       Can help on mobile to refresh charts.">Charts</span>
@@ -225,6 +191,29 @@
       </div>
     </div>
     <div class="div-graph">
+      <div class="div-header">
+        <span class="title" title="Portion of connected nodes and portion of weight of the current supply.<br/>
+        <b>latest_version:</b> Nodes running on latest version<br/>
+        <b>stake_latest:</b> Portion of online weight running on latest version<br/>
+        <b>stake_req:</b> Required weight needed for confirmations<br/>
+        <b>stake_tot:</b> Total connected weight">Protocol and Connected Weight</span>
+      </div>
+      <div class="div-graph-data">
+        <div data-netdata="repstats_v21_local.peerstat"
+          data-title="Protocol and weight from connected nodes"
+          data-decimal-digits="1"
+          data-common-max="100"
+          data-common-min="repstats_v21_local.peerstat"
+          data-units="%"
+          data-chart-library="dygraph"
+          data-width="90%"
+          data-height="100%"
+          data-after="-4500"
+          data-colors="#d7d7d7 #747de8 #7ad96e #e7893d #e87474"
+        ></div>
+      </div>
+    </div>
+    <div class="div-graph">
 	    <div class="div-header">
         <span class="title" title="Connection count to other nodes.<br/>
         Maximum, Median and Minimum from all monitored nodes.">Connected Peers</span>
@@ -257,77 +246,7 @@
           data-colors="#e87474 #7ad96e #747de8"
         ></div>
 	    </div>
-    </div>
-    <div class="div-graph">
-      <div class="div-header">
-        <span class="title" title="Number of unique measurements used in this system.<br/>
-        The top number represents the max amount of discovered monitors and/or telemetry.<br/>
-        Nodes with a block count below 50% of the maximum block count is not included.">Connected Data Points</span>
-      </div>
-      <div class="div-graph-data chart-normal">
-        <div data-netdata="repstats_v21_local.supported"
-          data-title="Stat Support"
-          data-decimal-digits="0"
-          data-common-max="repstats_v21_local.supported"
-          data-common-min="repstats_v21_local.supported"
-          data-chart-library="dygraph"
-          data-width="90%"
-          data-height="100%"
-          data-after="-4500"
-          data-colors="#d7d7d7 #747de8 #7ad96e #e7893d #e87474 #e174e8"
-        ></div>
-      </div>
-      <div class="div-graph-data chart-pr">
-        <div data-netdata="repstats_v21_local.supported_pr"
-          data-title="PR: Stat Support"
-          data-decimal-digits="0"
-          data-common-max="repstats_v21_local.supported_pr"
-          data-common-min="repstats_v21_local.supported_pr"
-          data-chart-library="dygraph"
-          data-width="90%"
-          data-height="100%"
-          data-after="-4500"
-          data-colors="#d7d7d7 #747de8 #7ad96e #e7893d #e87474 #e174e8"
-        ></div>
-      </div>
-    </div><div class="div-graph">
-      <div class="div-header">
-        <span class="title" title="Bandwidth limit defined for each node (here as Mbps instead of MB/s).<br/>
-        <b>The percentiles represent distributions of nodes:</b><br/>
-        <b>p10</b>: 10% of nodes are below this value (and 90% above)<br>
-        <b>p50</b>: Median. 50% are below and 50% are above this value.<br/>
-        <b>p90</b>: 90% of nodes are below this value (and 10% above)<br/>
-        <b>Nodes with 0 (unlimited) have been converted to 10 Gbps</b>">Node Bandwidth Limit [MEDIAN] [Mbit/s]</span>
-      </div>
-      <div class="div-graph-data chart-normal">
-        <div data-netdata="repstats_v21_local.bwlimits"
-          data-title="Percentiles of limited nodes | P50=Median"
-          data-decimal-digits="1"
-          data-common-max="repstats_v21_local.bwlimits"
-          data-common-min="repstats_v21_local.bwlimits"
-          data-chart-library="dygraph"
-          data-dygraph-theme="logscale"
-          data-width="90%"
-          data-height="100%"
-          data-after="-4500"
-          data-colors="#d6d86e #747de8 #7ad96e #e7893d #e87474"
-        ></div>
-      </div>
-      <div class="div-graph-data chart-pr">
-        <div data-netdata="repstats_v21_local.bwlimits_pr"
-          data-title="PR: Percentiles of limited nodes | P50=Median"
-          data-decimal-digits="1"
-          data-common-max="repstats_v21_local.bwlimits_pr"
-          data-common-min="repstats_v21_local.bwlimits_pr"
-          data-chart-library="dygraph"
-          data-dygraph-theme="logscale"
-          data-width="90%"
-          data-height="100%"
-          data-after="-4500"
-          data-colors="#d6d86e #747de8 #7ad96e #e7893d #e87474"
-        ></div>
-      </div>
-    </div>
+    </div>  
   </div>
 
 	<div class="div-float right show-charts">
@@ -436,6 +355,77 @@
       </div>
     </div>
     <div class="div-graph">
+      <div class="div-header">
+        <span class="title" title="Bandwidth limit defined for each node (here as Mbps instead of MB/s).<br/>
+        <b>The percentiles represent distributions of nodes:</b><br/>
+        <b>p10</b>: 10% of nodes are below this value (and 90% above)<br>
+        <b>p50</b>: Median. 50% are below and 50% are above this value.<br/>
+        <b>p90</b>: 90% of nodes are below this value (and 10% above)<br/>
+        <b>Nodes with 0 (unlimited) have been converted to 10 Gbps</b>">Node Bandwidth Limit [MEDIAN] [Mbit/s]</span>
+      </div>
+      <div class="div-graph-data chart-normal">
+        <div data-netdata="repstats_v21_local.bwlimits"
+          data-title="Percentiles of limited nodes | P50=Median"
+          data-decimal-digits="1"
+          data-common-max="repstats_v21_local.bwlimits"
+          data-common-min="repstats_v21_local.bwlimits"
+          data-chart-library="dygraph"
+          data-dygraph-theme="logscale"
+          data-width="90%"
+          data-height="100%"
+          data-after="-4500"
+          data-colors="#d6d86e #747de8 #7ad96e #e7893d #e87474"
+        ></div>
+      </div>
+      <div class="div-graph-data chart-pr">
+        <div data-netdata="repstats_v21_local.bwlimits_pr"
+          data-title="PR: Percentiles of limited nodes | P50=Median"
+          data-decimal-digits="1"
+          data-common-max="repstats_v21_local.bwlimits_pr"
+          data-common-min="repstats_v21_local.bwlimits_pr"
+          data-chart-library="dygraph"
+          data-dygraph-theme="logscale"
+          data-width="90%"
+          data-height="100%"
+          data-after="-4500"
+          data-colors="#d6d86e #747de8 #7ad96e #e7893d #e87474"
+        ></div>
+      </div>
+    </div>
+    <div class="div-graph">
+      <div class="div-header">
+        <span class="title" title="Number of unique measurements used in this system.<br/>
+        The top number represents the max amount of discovered monitors and/or telemetry.<br/>
+        Nodes with a block count below 50% of the maximum block count is not included.">Connected Data Points</span>
+      </div>
+      <div class="div-graph-data chart-normal">
+        <div data-netdata="repstats_v21_local.supported"
+          data-title="Stat Support"
+          data-decimal-digits="0"
+          data-common-max="repstats_v21_local.supported"
+          data-common-min="repstats_v21_local.supported"
+          data-chart-library="dygraph"
+          data-width="90%"
+          data-height="100%"
+          data-after="-4500"
+          data-colors="#d7d7d7 #747de8 #7ad96e #e7893d #e87474 #e174e8"
+        ></div>
+      </div>
+      <div class="div-graph-data chart-pr">
+        <div data-netdata="repstats_v21_local.supported_pr"
+          data-title="PR: Stat Support"
+          data-decimal-digits="0"
+          data-common-max="repstats_v21_local.supported_pr"
+          data-common-min="repstats_v21_local.supported_pr"
+          data-chart-library="dygraph"
+          data-width="90%"
+          data-height="100%"
+          data-after="-4500"
+          data-colors="#d7d7d7 #747de8 #7ad96e #e7893d #e87474 #e174e8"
+        ></div>
+      </div>
+    </div>
+    <!-- <div class="div-graph">
       <div class="div-graph">
         <div class="div-header">
           <span class="title" title="Time in milliseconds that it takes for a block published from one node to be confirmed on another using a websocket listener. Median value over 5min.">Transaction Delay Node-Node (Germany->Norway)</span>
@@ -486,30 +476,8 @@
           data-colors="#e87474 #7ad96e #747de8"
         ></div>
 	    </div>
-	   </div>
-     <div class="div-graph">
-       <div class="div-header">
-         <span class="title" title="Portion of connected nodes and portion of weight of the current supply.<br/>
-         <b>latest_version:</b> Nodes running on latest version<br/>
-         <b>stake_latest:</b> Portion of online weight running on latest version<br/>
-         <b>stake_req:</b> Required weight needed for confirmations<br/>
-         <b>stake_tot:</b> Total connected weight">Protocol and Connected Weight [nanoticker.info]</span>
-       </div>
-       <div class="div-graph-data">
-         <div data-netdata="repstats_v21_local.peerstat"
-           data-title="Protocol and weight from connected nodes"
-           data-decimal-digits="1"
-           data-common-max="100"
-           data-common-min="repstats_v21_local.peerstat"
-           data-units="%"
-           data-chart-library="dygraph"
-           data-width="90%"
-           data-height="100%"
-           data-after="-4500"
-           data-colors="#d7d7d7 #747de8 #7ad96e #e7893d #e87474"
-         ></div>
-       </div>
-     </div>
+	   </div> -->
+
   </div>
   <div class="section"></div>
   <div class="table-info">
@@ -567,8 +535,13 @@
     </table>
   </div>
 	<div class="div-footer">
-		<p class="footer-text">
-			<strong>Theme:</strong> <a href="?theme=default">1</a>,<a href="?theme=darkly">2</a>,<a href="?theme=darkest">3</a> | <span class="link-span" onClick="showOwnerModal()">About Owner</span> | <a href="https://github.com/Joohansson/">Github Projects</a> | <a href="https://nano.org">Nano Home</a> | <a href="https://nanolinks.info">Nano Guide</a> | <span class="link-span" onClick="showDonateModal()">Send me a donation</span>
+		<p class="footer-text">      
+      <a href="https://github.com/Joohansson/">Original Creator</a> | 
+      <a href="https://github.com/gr0vity-dev/">Maintainer</a> | 
+      <a href="https://nano.org">Nano Foundation</a> | 
+      <a href="https://nano.community">Nano Community</a> | 
+      <a href="https://nano.casa">Nano Ecosystem</a>
+      
 		</p>
 	</div>
 </div>
@@ -1506,24 +1479,36 @@
   <script type="text/javascript" src="js/mdb.min.js"></script>
 
   <script>
-    // this section has to appear before loading dashboard.js
-
-    // Select a theme.
-    // uncomment one of the two themes:
-    //var netdataTheme = 'default'; // this is white
-    var netdataTheme = 'slate'; // this is dark
-    //var netdataTheme = 'darkly'; // this is darker
-
-    if (urlParam('theme') != 0) {
-      netdataTheme = urlParam('theme')
-    }
-
-    // Set the default netdata server.
-    // on charts without a 'data-host', this one will be used.
-    // the default is the server that dashboard.js is downloaded from.
-
-    // var netdataServer = 'http://my.server:19999/';
-  </script>
+    // Set options for TV operation
+    // This has to be done, after dashboard.js is loaded
+  
+    // destroy charts not shown (lowers memory on the browser)
+    //NETDATA.options.current.destroy_on_hide = false;
+  
+    // set this to false, to always show all dimensions
+    NETDATA.options.current.eliminate_zero_dimensions = false;
+  
+    // lower the pressure on this browser
+    NETDATA.options.current.concurrent_refreshes = false;
+  
+    // if the tv browser is too slow (a pi?)
+    // set this to false
+    NETDATA.options.current.parallel_refresher = true;
+  
+    // always update the charts, even if focus is lost
+    NETDATA.options.current.stop_updates_when_focus_is_lost = false;
+  
+    // Since you may render charts from many servers and any of them may
+    // become offline for some time, the charts will break.
+    // This will reload the page every RELOAD_EVERY minutes
+  
+    var RELOAD_EVERY = 10;
+    setTimeout(function(){
+        location.reload();
+    }, RELOAD_EVERY * 60 * 1000);
+  
+    </script>
+ 
 
 
 

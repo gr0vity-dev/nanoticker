@@ -1,5 +1,0 @@
-aiohttp
-websockets
-numpy
-simplejson
-requests

@@ -3,7 +3,6 @@ from src.get_peers import getPeers
 from src.get_api import ApiHandler
 from src.webockets import WebsocketHandler
 from src.rpc_requests import RpcWrapper
-from stats_config import env
 import asyncio
 
 
@@ -30,9 +29,6 @@ class RepStatApp:
         loop = asyncio.get_event_loop()
         tasks = [
             loop.create_task(self.run_task_forever(self.get_peers_task)),
-            loop.create_task(self.run_task_forever(self.websocket_loop_task)),
-            loop.create_task(self.run_task_forever(
-                self.websocket_countdown_task))
         ]
 
         try:
@@ -59,6 +55,7 @@ class RepStatApp:
 
 
 if __name__ == "__main__":
-    config = Config(env)
+    environment = "LIVE"  # Or BETA, LIVE based on external input
+    config = Config(environment)
     app = RepStatApp(config)
     app.run()

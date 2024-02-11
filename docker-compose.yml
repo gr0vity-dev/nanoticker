@@ -1,0 +1,27 @@
+version: '3'
+
+x-logging: &default-logging
+  options:
+    max-size: "12m"
+    max-file: "5"
+  driver: json-file
+
+services:
+ nanobeta_nanoticker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args: #used in Dockerfile
+        - ENV=${ENV}
+        - NETDATA_SERVER=${NETDATA_SERVER}
+        - EXPLORER_BASE_URL=${EXPLORER_BASE_URL}
+    container_name : nanoticker_live
+    restart: "unless-stopped"
+    ports:
+    - '127.0.0.1:3112:80'
+    - '127.0.0.1:3113:19999'
+    volumes:
+    - ./.nanoticker:/usr/share/netdata/web/json/
+    env_file: 
+      - .env # used in the python scripts    
+    logging: *default-logging

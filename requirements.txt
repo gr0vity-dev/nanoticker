@@ -3,3 +3,4 @@ websockets
 #numpy
 simplejson
 requests
+python-dotenv

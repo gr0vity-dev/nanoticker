@@ -1,5 +1,5 @@
 from src.known_reps import get_reps, get_blacklist
-from secret_config import live_node_pw, live_node_user, beta_node_pw, beta_node_user, dev_node_pw, dev_node_user
+from stats_config import node_rpc_url, node_ws_url, node_rpc_pw, node_rpc_user, node_account
 from collections import deque  # for array shifting
 import time
 import logging
@@ -15,51 +15,34 @@ class Config:
 
         self.common_config()
 
+        # LOCAL / DEV Variables
         if self.env.lower() in ("dev", "develop", "local"):
-            # Set up DEV environment variables
-            self.nodeUrl = 'http://localhost:45000'
-            self.nodePw = dev_node_pw
-            self.nodeUser = dev_node_user
+            pass
 
-            # ... other DEV config
+        # BETA variables
         elif self.env.lower() in ("beta"):
-            self.nodeUrl = 'https://rpcproxy.bnano.info/proxy'  # beta
-            self.nodePw = beta_node_pw
-            self.nodeUser = beta_node_user
-
+            self.activeCurrency = 'nano-beta'  # nano, banano or nano-beta
             self.telemetryAddress = '127.0.0.1'
             self.telemetryPort = '54000'
-            self.websocketAddress = 'wss://nanolooker.bnano.info/ws'
-            self.logFile = "repstat.log"
-            # self.statFile = '/var/www/localhost/htdocs/json/stats.json'  # netdata container
-            # self.monitorFile = '/var/www/localhost/htdocs/json/monitors.json'  # netdata container
-
-            self.activeCurrency = 'nano-beta'  # nano, banano or nano-beta
-            # ninjaMonitors = 'https://beta.mynano.ninja/api/accounts/monitors' #beta
-            # self.ninjaMonitors = ''
+            self.statFile = '/var/www/localhost/htdocs/json/stats.json'  # netdata container
+            self.monitorFile = '/var/www/localhost/htdocs/json/monitors.json'  # netdata container
             self.query_reps = ''
-            self.aliasUrl = ''
-            # telemetry is retrived with another command for this account
-            self.localTelemetryAccount = 'nano_18cgy87ikc4ruyh5aqwqe6dybe9os1ip3681y9wukypz5j7kgh35uxftss1x'
-            # telemetry data from nodes not reported withing this interval (seconds) will be dropped from the list (until they report again)
-
             self.additional_monitors = False
-        elif self.env.lower() in ("main", "live", "prod"):
-            # Set up LIVE environment variables
-            self.nodeUrl = 'https://nanowallet.cc/proxy'
-            self.nodeUser = live_node_user
-            self.nodePw = live_node_pw
-            self.websocketAddress = 'wss://nanowallet.cc/ws'  # '192.168.178.88:7078'
+            self.logFile = "beta_repstat.log"
 
-            self.telemetryAddress = '127.0.0.1'
-            self.logFile = "prod_repstat.log"
-            self.telemetryPort = '7075'
+        # LIVE variables
+        elif self.env.lower() in ("main", "live", "prod"):
             self.activeCurrency = 'nano'
+            self.telemetryAddress = '127.0.0.1'
+            self.telemetryPort = '7075'
+            self.statFile = '/var/www/localhost/htdocs/json/stats.json'  # netdata container
+            self.monitorFile = '/var/www/localhost/htdocs/json/monitors.json'  # netdata container
+
             self.additional_monitors = True
             self.query_reps = ("https://rpc.nano.to", {"action": "reps"})
-            self.aliasUrl = ''
-            self.localTelemetryAccount = 'nano_3sz3bi6mpeg5jipr1up3hotxde6gxum8jotr55rzbu9run8e3wxjq1rod9a6'
-            # ... other LIVE config
+
+            self.logFile = "prod_repstat.log"
+
         else:
             raise ValueError(f"{self.env} is not a valid Environment")
 
@@ -74,6 +57,12 @@ class Config:
 
     def common_config(self):
         # Set up common configurations
+        self.websocketAddress = node_ws_url
+        self.nodeUrl = node_rpc_url
+        self.nodePw = node_rpc_pw
+        self.nodeUser = node_rpc_user
+        self.localTelemetryAccount = node_account
+
         self.websocketPeerDropLimit = 60
         self.statFile = 'stats.json'  # netdata container
         self.monitorFile = 'monitors.json'  # netdata container

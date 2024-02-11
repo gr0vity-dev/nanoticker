@@ -2,3 +2,5 @@
 *__pycache__*
 /script/json-cache/node_modules/*
 venv_nanoticker
+.env
+**DS_Store

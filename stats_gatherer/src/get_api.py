@@ -1185,15 +1185,15 @@ class ApiHandler:
                 "bwLimit90_pr": bwLimit90_pr, \
                 "bwLimit99_pr": bwLimit99_pr, \
                 # PR ONLY END
-                "self.config.pLatestVersionStat": self.config.pLatestVersionStat, \
-                "self.config.pTypesStat": self.config.pTypesStat, \
-                "self.config.pStakeTotalStat": self.config.pStakeTotalStat, \
-                "self.config.pStakeRequiredStat": self.config.pStakeRequiredStat, \
-                "self.config.pStakeLatestVersionStat": self.config.pStakeLatestVersionStat, \
+                "pLatestVersionStat": self.config.pLatestVersionStat, \
+                "pTypesStat": self.config.pTypesStat, \
+                "pStakeTotalStat": self.config.pStakeTotalStat, \
+                "pStakeRequiredStat": self.config.pStakeRequiredStat, \
+                "pStakeLatestVersionStat": self.config.pStakeLatestVersionStat, \
                 "pStakeOnline": self.config.latestOnlineWeight, \
                 "lastUpdated": str(datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')), \
                 "lastUpdatedUnix": str(time.time()), \
-                "speedTest": "-1", \
+                "speedTest": "0", \
             }
 
             # save to global vars used for pushing to blockchain later

@@ -1231,3 +1231,5 @@ class ApiHandler:
             self.log.error(
                 time_log('Could not write output data. Error: %r' % e))
             pass
+
+        return True

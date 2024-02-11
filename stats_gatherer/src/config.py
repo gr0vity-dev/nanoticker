@@ -95,7 +95,7 @@ class Config:
         self.runStatEvery = 3600  # publish stats to blockchain every x sec
         self.maxURLRequests = 250  # maximum concurrent requests
         # call API if x sec has passed since last websocket message
-        self.websocketCountDownLimit = 1
+        self.websocketCountDownLimit = 3
         self.runSpeedTestEvery = 120  # run speed test every X sec
 
         """CONSTANTS"""

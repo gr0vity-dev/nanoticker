@@ -196,7 +196,7 @@ class WebsocketHandler:
 
     async def websocketCountDown(self):
 
-        while 1:
+        while True:
             if self.config.apiShouldCall and time.time() > self.config.websocketCountDownTimer + self.config.websocketCountDownLimit:
                 # if enough time has passed since last run
                 if time.time() > self.config.websocketTimer + self.config.runAPIEvery:

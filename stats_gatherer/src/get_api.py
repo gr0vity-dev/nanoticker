@@ -15,6 +15,43 @@ class ApiHandler:
         self.rpc_wrapper = rpc_wrapper
         self.log = config.log
 
+    async def get_monitor_data(self):
+        self.log.info(time_log("Get API"))
+        jsonData = []
+
+        # Create and await tasks as before
+        tasks = [self.handle_path(path) for path in self.config.reps]
+        try:
+            with async_timeout.timeout(self.config.monitorTimeout):
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for result in results:
+                if isinstance(result, Exception):
+                    self.log.warning(
+                        time_log(f"Task resulted in an exception: {result}"))
+                else:
+                    self.process_result(result, jsonData)
+
+        except asyncio.TimeoutError as t:
+            self.log.warning(time_log(f'Monitor API read timeout: {t}'))
+
+        # After processing, return jsonData
+        return jsonData
+
+    async def handle_path(self, path):
+        if len(path) > 6 and not path.endswith('.htm'):
+            url = f'{path}/api.php'
+        else:
+            url = path
+        return await self.rpc_wrapper.get_monitor(url)
+
+    def process_result(self, result, jsonData):
+        if result is not None and result[1]:
+            jsonData.append([result[0], result[3]])
+        else:
+            self.log.warning(
+                time_log(f'Could not read json from {result[2]}. Result: {result[4]}'))
+
     async def getAPI(self):
         PRStatusLocal = False
         telemetryPeers = []
@@ -359,49 +396,7 @@ class ApiHandler:
 
         # GET MONITOR DATA
         # self.log.info(time_log("Get API"))
-        jsonData = []
-        """Split URLS in max X concurrent requests"""
-        for chunk in chunks(self.config.reps, self.config.maxURLRequests):
-            tasks = []
-            for path in chunk:
-                if len(path) > 6:
-                    if path[-4:] != '.htm':
-                        tasks.append(asyncio.ensure_future(
-                            self.rpc_wrapper.get_monitor('%s/api.php' % path)))
-                    else:
-                        tasks.append(asyncio.ensure_future(
-                            self.rpc_wrapper.get_monitor(path)))
-
-            try:
-                with async_timeout.timeout(self.config.monitorTimeout):
-                    await asyncio.gather(*tasks)
-
-            except asyncio.TimeoutError as t:
-                # self.log.warning(time_log('Monitor API read timeout: %r' %t))
-                pass
-            except Exception as e:
-                self.log.warning(time_log(e))
-
-            for i, task in enumerate(tasks):
-                try:
-                    if task.result() is not None and task.result():
-                        if (task.result()[1]):
-                            jsonData.append(
-                                [task.result()[0], task.result()[3]])
-                            # self.log.info(time_log('Valid: ' + task.result()[0]['nanoNodeName']))
-                        else:
-                            self.log.warning(time_log('Could not read json from %s. Result: %s' % (
-                                task.result()[2], task.result()[4])))
-
-                except Exception as e:
-                    # for example when tasks timeout
-                    self.log.warning(
-                        time_log('Could not read response. Error: %r' % e))
-                    pass
-
-                finally:
-                    if task.done() and not task.cancelled():
-                        task.exception()  # this doesn't raise anything, just mark exception retrieved
+        jsonData = await self.get_monitor_data()
 
         syncData = []
         conf50Data = []

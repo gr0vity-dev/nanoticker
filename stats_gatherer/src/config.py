@@ -39,7 +39,7 @@ class Config:
             self.monitorFile = '/var/www/localhost/htdocs/json/monitors.json'  # netdata container
 
             self.additional_monitors = True
-            self.query_reps = ("https://rpc.nano.to", {"action": "reps"})
+            self.query_reps = ''  # ("https://rpc.nano.to", {"action": "reps"})
 
             self.logFile = "prod_repstat.log"
 
@@ -95,7 +95,7 @@ class Config:
         self.runStatEvery = 3600  # publish stats to blockchain every x sec
         self.maxURLRequests = 250  # maximum concurrent requests
         # call API if x sec has passed since last websocket message
-        self.websocketCountDownLimit = 3
+        self.websocketCountDownLimit = 1
         self.runSpeedTestEvery = 120  # run speed test every X sec
 
         """CONSTANTS"""

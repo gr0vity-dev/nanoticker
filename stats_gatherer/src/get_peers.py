@@ -26,7 +26,8 @@ async def get_peers_from_node_rpc(rpc_wrapper: RpcWrapper, config: Config, monit
         if 'peers' in resp[0]:
             await process_peers(resp[0]['peers'], config, monitor_paths, p_versions, p_peers)
     except Exception as e:
-        config.log.warning(await time_log(f"Could not read peers from node RPC. {e}"))
+        config.log.warning(
+            time_log(f"Could not read peers from node RPC. {e}"))
         return False
     return True
 
@@ -68,7 +69,8 @@ async def get_voting_weight_stat(rpc_wrapper: RpcWrapper, config: Config, p_peer
             for peer in resp[0]['peers']:
                 await update_peer_weights(peer, p_peers)
     except Exception as e:
-        config.log.warning(await time_log(f"Could not read quorum from node RPC. {e}"))
+        config.log.warning(
+            time_log(f"Could not read quorum from node RPC. {e}"))
     return p_stake_tot, p_stake_req
 
 
@@ -165,7 +167,8 @@ async def get_reps_from_nano_to(rpc_wrapper, config: Config, monitor_paths):
             if url and url not in monitor_paths:
                 monitor_paths.append(url)
     except Exception as e:
-        config.log.warning(await time_log("Error getting reps from nano.to: " + str(e)))
+        config.log.warning(
+            time_log("Error getting reps from nano.to: " + str(e)))
 
 
 async def apply_blacklist(monitor_paths, config):
